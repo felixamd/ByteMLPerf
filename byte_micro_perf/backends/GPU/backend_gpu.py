@@ -27,7 +27,7 @@ from backends.backend import Backend
 from backends.module_store import *
 from backends.utils import get_dtype_bytes
 
-from .custom_ops import GPUGemmOp, GPUBatchGemmOp, GPUGroupGemmOp
+#from .custom_ops import GPUGemmOp, GPUBatchGemmOp, GPUGroupGemmOp
 
 
 logging.basicConfig(level=logging.INFO)
@@ -165,16 +165,16 @@ class BackendGPU(Backend):
 
     # gemm ops
     def gemm(self):
-        self.op = GPUGemmOp()
+        self.op = GemmOp()
 
     def gemv(self):
-        self.op = GPUGemmOp()
+        self.op = GemmOp()
 
     def batch_gemm(self):
-        self.op = GPUBatchGemmOp()
+        self.op = BatchGemmOp()
 
     def group_gemm(self):
-        self.op = GPUGroupGemmOp()
+        self.op = GroupGemmOp()
 
 
 

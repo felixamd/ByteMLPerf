@@ -205,8 +205,8 @@ class PerfEngine:
 
         # world_size may excced available device count
         ret = initialize_func(rank, world_size)
-        if ret is not None and not ret:
-            return
+        #if ret is not None and not ret:
+        #    return
 
         status = self.start_perf(self.workload)
         return status

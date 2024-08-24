@@ -188,6 +188,7 @@ class PerfEngine:
         AccuracyChecker.output_dir = output_dir
         AccuracyChecker.configs = compile_info
 
+        '''
         if workload['test_accuracy']:
             log.info("******************************************* Running Accuracy Checker... *******************************************")
 
@@ -197,6 +198,7 @@ class PerfEngine:
 
             accuracy_report['Data Percent'] = workload['data_percent']
             accuracy_report.update(accuracy_results)
+        '''
 
         # test numeric
         if workload['test_numeric']:

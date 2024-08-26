@@ -78,10 +78,10 @@ class PerfEngine:
         success, total = 0, len(self.workload)
         if total == 0:
             return
-        log.info("******************* Backend Env Initization *******************")
-        status = self.activate_venv(self.backend_type)
-        if not status:
-            log.warning("Activate virtualenv Failed, Please Check...")
+#        log.info("******************* Backend Env Initization *******************")
+#        status = self.activate_venv(self.backend_type)
+#        if not status:
+#            log.warning("Activate virtualenv Failed, Please Check...")
 
         self.compile_backend = init_compile_backend(self.backend_type)
         self.runtime_backend = init_runtime_backend(self.backend_type)
@@ -242,7 +242,7 @@ class PerfEngine:
         log.info("Testing Finish. Report is saved in path: [ {}/{} ]".
                  format(output_dir[output_dir.rfind('general_perf'):],
                  os.path.basename(output_report_path)))
-        build_pdf(output_report_path)
+        #build_pdf(output_report_path)
         log.info("PDF Version is saved in path: [ {}/{}-TO-{}.pdf ]".format(
             output_dir[output_dir.rfind('general_perf'):],
             base_report['Model'],

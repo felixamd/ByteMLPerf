@@ -24,12 +24,6 @@ log = logging.getLogger("TestAccuracy")
 
 class AccuracyChecker(test_accuracy.AccuracyChecker):
 
-    def flatten_list(self, nested_list):
-        return list(chain.from_iterable(nested_list))
-
-    #def flatten(self, lst):
-    #    return [item for sublist in lst for item in (sublist if isinstance(sublist, list) else [sublist])]
-    
     def flatten(self, lst):
         result = []
         for item in lst:
@@ -52,42 +46,16 @@ class AccuracyChecker(test_accuracy.AccuracyChecker):
 
             results = self.runtime_backend.predict(test_data)
             if isinstance(results, dict):
-                log.info('---this is a dict!---')
                 list_key = list(results.keys())
                 list_key.sort()
                 for key in list_key:
-                    log.info('key: {}, type of value: {}'.format(key, type(results[key])))
-
-
-                    '''
-                    flattened = self.flatten(list(results[key]))
-                    log.info('key: {}, type of value: {}'.format(key, type(results[key])))
-                    if len(flattened) > 1:
-                        log.info('flattened 0: {},\n1: {}'.format(flattened[0], flattened[1]))
-                    elif len(flattened) > 0:
-                        log.info('flattened 0: {}'.format(flattened[0]))
-                    else:
-                        log.warning('flattened NONE')
-                    '''
-
-                    #diffs.extend(array('i', results[key]).flatten())
                     diffs.extend(self.flatten(results[key]))
-                    #diffs.extend(self.flatten(results[key]))
-                    #diffs.extend(results[key].flatten())
             elif isinstance(results, list):
-                #log.info('---this is a list!---')
                 for out in results:
                     diffs.extend(out.flatten())
             else:
-                #log.info('---this is neither a dict nor a list!---')
                 diffs.extend(results)
 
-        '''
-        log.info('Batch size is {}, Accuracy: {}'.format(
-            self.dataloader.cur_bs, 0.0))
-        log.info('type of diffs = {}, len of diffs = {}'.format(type(diffs), len(diffs)))
-        log.info('diff 0 {},\ndiff 1 {}'.format(diffs[0], diffs[1]))
-        '''
         np.save(self.output_dir + "/{}.npy".format(self.dataloader.name()),
                 np.array(diffs),
                 allow_pickle=True)

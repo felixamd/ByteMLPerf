@@ -108,8 +108,10 @@ class AccuracyChecker():
             return {}
         vendor_data = np.load(self.output_dir +
                               "/{}.npy".format(self.dataloader.name()))
+                              #"/{}.npy".format(self.dataloader.name()), allow_pickle=True)
         cpu_data = np.load(cpu_data_path +
                            "/{}.npy".format(self.dataloader.name()))
+                           #"/{}.npy".format(self.dataloader.name()), allow_pickle=True)
         return draw_all_diff(
             cpu_data, vendor_data,
             self.output_dir + "/" + self.configs["model"] + '-to-' + self.configs['compile_precision'].lower() + '.png')

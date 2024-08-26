@@ -1,0 +1,22 @@
+diff a/byte_infer_perf/general_perf/launch.py b/byte_infer_perf/general_perf/launch.py	(rejected hunks)
+@@ -70,13 +70,13 @@ def main():
+                 model_info['model'], model_info['dataset_name'] or "None"])
+ 
+         # test numeric
+-        #if workload['test_numeric'] and not parsed_args.compile_only and not workload['compile_only']:
+-        #    log.info("******************************************* Running CPU Numeric Checker... *******************************************")
+-        #    subprocess.call([
+-        #        'bash', 'general_perf/backends/CPU/calculate_cpu_diff.sh',
+-        #        workload['model'],
+-        #        str(workload['batch_sizes'][0])
+-        #    ])
++        if workload['test_numeric'] and not parsed_args.compile_only and not workload['compile_only']:
++            log.info("******************************************* Running CPU Numeric Checker... *******************************************")
++            subprocess.call([
++                'bash', 'general_perf/backends/CPU/calculate_cpu_diff.sh',
++                workload['model'],
++                str(workload['batch_sizes'][0])
++            ])
+ 
+         cmd = f'python3 general_perf/core/perf_engine.py --hardware_type {parsed_args.hardware_type} --task {parsed_args.task}'
+         if parsed_args.compile_only:

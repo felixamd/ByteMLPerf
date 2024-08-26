@@ -13,7 +13,7 @@ tf.get_logger().setLevel('ERROR')
 
 import numpy as np
 import time
-from byte_mlperf.backends import runtime_backend
+from general_perf.backends import runtime_backend
 
 log = logging.getLogger("RuntimeBackendMIGRAPHX")
 

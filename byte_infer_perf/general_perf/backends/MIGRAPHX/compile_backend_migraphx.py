@@ -15,11 +15,11 @@ tf.get_logger().setLevel('ERROR')
 
 import numpy as np
 import time
-from byte_mlperf.backends import compile_backend
+from general_perf.backends import compile_backend
 import subprocess
 
 log = logging.getLogger("CompileBackendMIGRAPHX")
-from byte_mlperf.tools import saved_to_onnx
+from general_perf.tools import saved_to_onnx
 
 pt_dtype_map = {
     "FLOAT32": torch.float32,
@@ -143,7 +143,7 @@ class CompileBackendMIGRAPHX(compile_backend.CompileBackend):
 
     def get_interact_profile(self, config):
         model_profile = []
-        file_path = "byte_mlperf/backends/MIGRAPHX/" + self.hardware_type + '.json'
+        file_path = "general_perf/backends/MIGRAPHX/" + self.hardware_type + '.json'
         if os.path.exists(file_path):
             with open(file_path, 'r') as f:
                 model_profile = json.load(f)

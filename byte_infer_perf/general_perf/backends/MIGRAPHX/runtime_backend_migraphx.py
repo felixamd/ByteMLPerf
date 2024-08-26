@@ -90,7 +90,7 @@ class RuntimeBackendMIGRAPHX(runtime_backend.RuntimeBackend):
                     assert( len(_results) == 2 )
                     results[ self.outputs[0] ] = np.array( _results[1].tolist() ).reshape( _results[1].get_shape().lens() )
                 else:
-                    if( len( self.outputs ) == 1 ):
+                    if( len( self.outputs ) == 1 ) or 'vae-decoder-onnx-fp32' in self.configs['model']:
                         results[ self.outputs[0] ] = np.array( _results[0].tolist() ).reshape( _results[0].get_shape().lens() )
                     else:
                         for i in range( len( self.outputs ) ):

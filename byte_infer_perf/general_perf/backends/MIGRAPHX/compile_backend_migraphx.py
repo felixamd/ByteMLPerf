@@ -79,8 +79,8 @@ class CompileBackendMIGRAPHX(compile_backend.CompileBackend):
         updated_model_paths = []
         for batch_size in batch_sizes:
             model_path_for_batch_size = model_onnx_path.rsplit("/",1)
-            model_onnx_path_set_batch_size = os.path.join(model_path_for_batch_size[0],str(batch_size),model_path_for_batch_size[1])
-            model_dir = os.path.join(model_path_for_batch_size[0],str(batch_size))
+            model_onnx_path_set_batch_size = os.path.join(model_path_for_batch_size[0],str(batch_size)+'-'+model_precision.lower(),model_path_for_batch_size[1])
+            model_dir = os.path.join(model_path_for_batch_size[0],str(batch_size)+'-'+model_precision.lower())
             if not os.path.exists(model_dir):
                 os.makedirs(model_dir)
             model_paths = model_onnx_path_set_batch_size.split('.')
@@ -98,6 +98,10 @@ class CompileBackendMIGRAPHX(compile_backend.CompileBackend):
                 if(('interact_info' in config) and ('model_precision' in config['interact_info']) and
                     ('FP16' in config['interact_info']['model_precision']) and (config['model_info']['model'] in ["resnet50-tf-fp32","yolov5-onnx-fp32","videobert-onnx-fp32","bert-tf-fp32","conformer-encoder-onnx-fp32","widedeep-tf-fp32"])):
                     migraphx.quantize_fp16(model, ['dot', 'convolution'])
+
+                if(('interact_info' in config) and ('model_precision' in config['interact_info']) and
+                    ('FP16' in config['interact_info']['model_precision']) and (config['model_info']['model'] in ["unet-onnx-fp32", "clip-onnx-fp32", "vae-encoder-onnx-fp32", "vae-decoder-onnx-fp32"])):
+                    migraphx.quantize_fp16(model)
 
                 model.compile(migraphx.get_target("gpu"))
                 migraphx.save(model, model_path, format='msgpack')

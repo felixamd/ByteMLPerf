@@ -18,7 +18,7 @@ fi
 for MODEL in unet clip vae-encoder vae-decoder
 do
         echo " ------ model ${MODEL} ------ "
-        jq -r '.Performance[][0] | [.BS, .QPS, ."AVG Latency", ."P99 Latency"] | @csv' reports/MIGRAPHX/${MODEL}-onnx-fp32/result-${DTYPE}.json > $ORI_CSV
+        jq -r '.Performance[] | [.BS, .QPS, ."AVG Latency", ."P99 Latency"] | @csv' reports/MIGRAPHX/${MODEL}-onnx-fp32/result-${DTYPE}.json > $ORI_CSV
         jq -r '.Accuracy | [."Mean Diff", ."Std Diff", ."Max Diff", ."Max Rel-Diff", ."Mean Rel-Diff", ."Diff Dist"] | @csv' reports/MIGRAPHX/${MODEL}-onnx-fp32/result-${DTYPE}.json >> $ORI_CSV
         if [[ "$TRANSPOSE" == "True" ]]; then
                 csvtool transpose $ORI_CSV > ${OUT_DIR}/${MODEL}-${DTYPE}.csv
@@ -28,7 +28,10 @@ do
                 cp reports/MIGRAPHX/${MODEL}-onnx-fp32/result-${DTYPE}.json ${OUT_DIR}/result-${DTYPE}-${MODEL}.json
         fi
         echo "${OUT_DIR}/result-${DTYPE}-${MODEL}.json saved."
-        cp reports/MIGRAPHX/${MODEL}-onnx-fp32/${MODEL}-onnx-fp32-to-${DTYPE}.png ${OUT_DIR}
+	report_name=${MODEL}-onnx-fp32-to-${DTYPE}
+	report_name_upper=${report_name^^}
+	cp reports/MIGRAPHX/${MODEL}-onnx-fp32/${report_name}.png ${OUT_DIR}
+	cp reports/MIGRAPHX/${MODEL}-onnx-fp32/${report_name_upper}.JSON.pdf ${OUT_DIR}
         echo "${OUT_DIR}/${MODEL}-onnx-fp32-to-${DTYPE}.png saved"
 done
 

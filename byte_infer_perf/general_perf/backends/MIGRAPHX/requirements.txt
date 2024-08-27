@@ -1,4 +1,3 @@
-
 matplotlib
 scikit-learn
 opencv-python-headless
@@ -14,4 +13,4 @@ tf2onnx
 six==1.15.0
 numpy==1.23.0
 protobuf==3.20.2
-typing-extensions==3.7.4.3
+typing-extensions==4.8.0

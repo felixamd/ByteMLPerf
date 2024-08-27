@@ -13,7 +13,7 @@ tf.get_logger().setLevel('ERROR')
 
 import numpy as np
 import time
-from byte_mlperf.backends import runtime_backend
+from general_perf.backends import runtime_backend
 
 log = logging.getLogger("RuntimeBackendMIGRAPHX")
 
@@ -49,7 +49,6 @@ class RuntimeBackendMIGRAPHX(runtime_backend.RuntimeBackend):
         self.model_runtimes = []
         self.configs = None
         self.batch_size = -1
-        self.datatype = 'fp32'
 
     def predict(self, feeds):
         if not self.model_runtimes:
@@ -68,8 +67,6 @@ class RuntimeBackendMIGRAPHX(runtime_backend.RuntimeBackend):
                 if( ( 'layout' in self.model_info ) and ( self.model_info['layout'] == 'NHWC' ) and ( feeds[ key ].shape[3] != 3 ) ):
                     params[ key ] = np.ascontiguousarray(np.transpose( feeds[ key ] , axes=[0, 2, 3, 1]))
                 elif( isinstance( feeds[key] , list ) ):
-                    log.info('dtype = {}, key = {}'.format(INPUT_TYPE[ self.input_type[key_id] ], key))
-                    self.datatype = INPUT_TYPE[ self.input_type[key_id] ]
                     params[ key ] = np.array( feeds[ key ] , dtype = INPUT_TYPE[ self.input_type[key_id] ] )
                 else:
                     params[ key ] = feeds[ key ]
@@ -96,15 +93,7 @@ class RuntimeBackendMIGRAPHX(runtime_backend.RuntimeBackend):
                     if( len( self.outputs ) == 1 ):
                         results[ self.outputs[0] ] = np.array( _results[0].tolist() ).reshape( _results[0].get_shape().lens() )
                     else:
-                        '''
-                        #log.info('type of outputs: {} ({}), first: {}'.format(type(self.outputs), len(self.outputs), self.outputs[0]))
-                        log.info('--- outputs --- {}'.format(self.outputs))
-                        #log.info('--- results --- type {}, all: {}'.format(type(results), results))
-                        log.info('--- _results --- type {}, len {}, type {}, attr {}, shape {}, lens {}'.format(type(_results), len(_results), type(_results[0]), dir(_results[0]), _results[0].get_shape(), _results[0].get_shape().lens()))
-                        log.info('next level... {}'.format(dir(_results[0].get_shape())))
-                        '''
                         for i in range( len( self.outputs ) ):
-                            #log.info('({}) {} '.format(i, self.outputs[i]))
                             results[ self.outputs[i] ] = [ np.array( _results[i] ).reshape( _results[i].get_shape().lens() ) ]
             assert len(results) != 0
 
@@ -129,7 +118,7 @@ class RuntimeBackendMIGRAPHX(runtime_backend.RuntimeBackend):
         else:
             batch_size = self.workload[ 'batch_sizes' ][ 0 ]
         iterations = self.workload['iterations']
-        reports = []
+
         if True:
             times_range = []
             report = {}
@@ -153,12 +142,15 @@ class RuntimeBackendMIGRAPHX(runtime_backend.RuntimeBackend):
             avg_latency = round(sum(times_range) / iterations * 1000, 2)
             qps = int(1000.0 * batch_size / avg_latency)
 
+            log.info(
+                'Batch size is {}, QPS: {}, Avg Latency:{}, Tail Latency:{}'.
+                format(batch_size, qps, avg_latency, tail_latency))
+
             report['QPS'] = qps
             report['AVG Latency'] = avg_latency
             report['P99 Latency'] = tail_latency
-            reports.append(report)
 
-        return reports
+        return report
 
     def get_loaded_batch_size(self):
         return self.batch_size
@@ -181,7 +173,7 @@ class RuntimeBackendMIGRAPHX(runtime_backend.RuntimeBackend):
                         break
                 import migraphx
                 onnx_file_path_for_batch_size = onnx_file_path.rsplit("/",2)
-                onnx_file_path=os.path.join(onnx_file_path_for_batch_size[0],str(self.batch_size)+'-'+self.datatype,onnx_file_path_for_batch_size[-1])
+                onnx_file_path=os.path.join(onnx_file_path_for_batch_size[0],str(self.batch_size)+'-'+self.configs['compile_precision'].lower(),onnx_file_path_for_batch_size[-1])
                 model=migraphx.load(onnx_file_path,format='msgpack')
             elif self.framework == "Pytorch":
                 raise NotImplementedError("MIGraphX backend for models of PyTorch framework has not been implemented yet.")

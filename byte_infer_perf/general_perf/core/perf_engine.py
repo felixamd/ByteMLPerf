@@ -79,9 +79,9 @@ class PerfEngine:
         if total == 0:
             return
         log.info("******************* Backend Env Initization *******************")
-        status = self.activate_venv(self.backend_type)
-        if not status:
-            log.warning("Activate virtualenv Failed, Please Check...")
+        # status = self.activate_venv(self.backend_type)
+        # if not status:
+        #     log.warning("Activate virtualenv Failed, Please Check...")
 
         self.compile_backend = init_compile_backend(self.backend_type)
         self.runtime_backend = init_runtime_backend(self.backend_type)
@@ -356,7 +356,8 @@ class PerfEngine:
                 if (hardware_type == "HPU"):
                     virtualenv.create_environment(venv_dir,True)
                 else:
-                    virtualenv.create_environment(venv_dir)
+                    # virtualenv.create_environment(venv_dir)
+                    virtualenv.cli_run([f"venv {venv_dir}"])
                 exec(open(activate_file).read(), {'__file__': activate_file})
                 python_path = os.path.join(venv_dir, 'bin', 'python3')
                 subprocess.call([

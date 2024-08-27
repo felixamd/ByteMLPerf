@@ -1,0 +1,11 @@
+[
+    {
+      "name": "model_precision",
+      "note": "Please specify the accuracy of the model",
+      "dialog_type": "Radiolist Dialog",
+      "options": ["FP32","FP16"],
+      "type": "str",
+      "default": "FP32",
+      "depends": null
+    }
+]

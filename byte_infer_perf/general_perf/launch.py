@@ -13,7 +13,7 @@ sys.path.insert(0, BYTE_MLPERF_ROOT)
 from general_perf.core.configs.workload_store import load_workload
 
 logging.basicConfig(level=logging.INFO)
-log = logging.getLogger("LANUCH")
+log = logging.getLogger("LAUNCH")
 
 
 def get_args():

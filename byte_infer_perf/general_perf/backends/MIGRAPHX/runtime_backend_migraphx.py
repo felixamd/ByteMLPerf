@@ -118,7 +118,7 @@ class RuntimeBackendMIGRAPHX(runtime_backend.RuntimeBackend):
         else:
             batch_size = self.workload[ 'batch_sizes' ][ 0 ]
         iterations = self.workload['iterations']
-        reports = []
+
         if True:
             times_range = []
             report = {}
@@ -142,12 +142,15 @@ class RuntimeBackendMIGRAPHX(runtime_backend.RuntimeBackend):
             avg_latency = round(sum(times_range) / iterations * 1000, 2)
             qps = int(1000.0 * batch_size / avg_latency)
 
+            log.info(
+                'Batch size is {}, QPS: {}, Avg Latency:{}, Tail Latency:{}'.
+                format(batch_size, qps, avg_latency, tail_latency))
+
             report['QPS'] = qps
             report['AVG Latency'] = avg_latency
             report['P99 Latency'] = tail_latency
-            reports.append(report)
 
-        return reports
+        return report
 
     def get_loaded_batch_size(self):
         return self.batch_size

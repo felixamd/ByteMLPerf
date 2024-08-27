@@ -242,7 +242,7 @@ class PerfEngine:
         log.info("Testing Finish. Report is saved in path: [ {}/{} ]".
                  format(output_dir[output_dir.rfind('general_perf'):],
                  os.path.basename(output_report_path)))
-        #build_pdf(output_report_path)
+        build_pdf(output_report_path)
         log.info("PDF Version is saved in path: [ {}/{}-TO-{}.pdf ]".format(
             output_dir[output_dir.rfind('general_perf'):],
             base_report['Model'],

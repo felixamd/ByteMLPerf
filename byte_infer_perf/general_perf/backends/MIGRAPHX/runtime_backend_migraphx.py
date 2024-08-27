@@ -49,7 +49,6 @@ class RuntimeBackendMIGRAPHX(runtime_backend.RuntimeBackend):
         self.model_runtimes = []
         self.configs = None
         self.batch_size = -1
-        self.datatype = 'fp32'
 
     def predict(self, feeds):
         if not self.model_runtimes:
@@ -68,8 +67,6 @@ class RuntimeBackendMIGRAPHX(runtime_backend.RuntimeBackend):
                 if( ( 'layout' in self.model_info ) and ( self.model_info['layout'] == 'NHWC' ) and ( feeds[ key ].shape[3] != 3 ) ):
                     params[ key ] = np.ascontiguousarray(np.transpose( feeds[ key ] , axes=[0, 2, 3, 1]))
                 elif( isinstance( feeds[key] , list ) ):
-                    log.info('dtype = {}, key = {}'.format(INPUT_TYPE[ self.input_type[key_id] ], key))
-                    self.datatype = INPUT_TYPE[ self.input_type[key_id] ]
                     params[ key ] = np.array( feeds[ key ] , dtype = INPUT_TYPE[ self.input_type[key_id] ] )
                 else:
                     params[ key ] = feeds[ key ]
@@ -173,7 +170,7 @@ class RuntimeBackendMIGRAPHX(runtime_backend.RuntimeBackend):
                         break
                 import migraphx
                 onnx_file_path_for_batch_size = onnx_file_path.rsplit("/",2)
-                onnx_file_path=os.path.join(onnx_file_path_for_batch_size[0],str(self.batch_size)+'-'+self.datatype,onnx_file_path_for_batch_size[-1])
+                onnx_file_path=os.path.join(onnx_file_path_for_batch_size[0],str(self.batch_size)+'-'+self.configs['compile_precision'].lower(),onnx_file_path_for_batch_size[-1])
                 model=migraphx.load(onnx_file_path,format='msgpack')
             elif self.framework == "Pytorch":
                 raise NotImplementedError("MIGraphX backend for models of PyTorch framework has not been implemented yet.")

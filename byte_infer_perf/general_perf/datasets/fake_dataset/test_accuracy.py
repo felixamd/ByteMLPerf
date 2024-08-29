@@ -24,17 +24,6 @@ log = logging.getLogger("TestAccuracy")
 
 class AccuracyChecker(test_accuracy.AccuracyChecker):
 
-    def flatten(self, lst):
-        result = []
-        for item in lst:
-            if isinstance(item, list) or isinstance(item, np.ndarray):
-                result.extend(self.flatten(item))
-            else:
-#                print(f'type of item: {type(item)}')
-                result.append(item)
-        return result
-    
-
     def calculate_acc(self, data_percent=10):
         log.info("Start to calculate accuracy...")
         num = int((data_percent / 100) * self.dataloader.get_batch_count()
@@ -49,7 +38,7 @@ class AccuracyChecker(test_accuracy.AccuracyChecker):
                 list_key = list(results.keys())
                 list_key.sort()
                 for key in list_key:
-                    diffs.extend(self.flatten(results[key]))
+                    diffs.extend(results[key].flatten())
             elif isinstance(results, list):
                 for out in results:
                     diffs.extend(out.flatten())

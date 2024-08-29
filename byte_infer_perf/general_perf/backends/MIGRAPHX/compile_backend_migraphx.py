@@ -53,6 +53,9 @@ class CompileBackendMIGRAPHX(compile_backend.CompileBackend):
         self.hardware_type= 'MIGRAPHX'
 
     def compile(self, config, dataloader=None):
+
+        print(config)
+
         if(('interact_info' in config) and ('model_precision' in config['interact_info']) and
             ('FP16' in config['interact_info']['model_precision']) and (config['model_info']['model'] in ["resnet50-tf-fp32","yolov5-onnx-fp32","videobert-onnx-fp32","bert-tf-fp32","conformer-encoder-onnx-fp32","widedeep-tf-fp32"])):
             model_precision = 'FP16'
@@ -95,12 +98,7 @@ class CompileBackendMIGRAPHX(compile_backend.CompileBackend):
                         new_input[key]=[value[0]*batch_size]+value[1:]
                 model = migraphx.parse_onnx(model_onnx_path,map_input_dims=new_input,default_dim_value=batch_size)
 
-                if(('interact_info' in config) and ('model_precision' in config['interact_info']) and
-                    ('FP16' in config['interact_info']['model_precision']) and (config['model_info']['model'] in ["resnet50-tf-fp32","yolov5-onnx-fp32","videobert-onnx-fp32","bert-tf-fp32","conformer-encoder-onnx-fp32","widedeep-tf-fp32"])):
-                    migraphx.quantize_fp16(model, ['dot', 'convolution'])
-
-                if(('interact_info' in config) and ('model_precision' in config['interact_info']) and
-                    ('FP16' in config['interact_info']['model_precision']) and (config['model_info']['model'] in ["unet-onnx-fp32", "clip-onnx-fp32", "vae-encoder-onnx-fp32", "vae-decoder-onnx-fp32"])):
+                if model_precision == "FP16":
                     migraphx.quantize_fp16(model)
 
                 model.compile(migraphx.get_target("gpu"))

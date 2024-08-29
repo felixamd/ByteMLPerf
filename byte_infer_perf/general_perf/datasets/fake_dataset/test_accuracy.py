@@ -49,7 +49,7 @@ class AccuracyChecker(test_accuracy.AccuracyChecker):
                 list_key = list(results.keys())
                 list_key.sort()
                 for key in list_key:
-                    #log.info('key: {}, type of value: {}'.format(key, type(results[key])))
+                    # log.info('key: {}, type of value: {}'.format(key, type(results[key])))
 
 
                     '''
@@ -63,10 +63,10 @@ class AccuracyChecker(test_accuracy.AccuracyChecker):
                         log.warning('flattened NONE')
                     '''
 
-                    diffs.extend(self.flatten(results[key]))
+                    # diffs.extend(self.flatten(results[key]))
                     #diffs.extend(array('i', results[key]).flatten())
                     #diffs.extend(self.flatten(results[key]))
-                    #diffs.extend(results[key].flatten())
+                    diffs.extend(results[key].flatten())
             elif isinstance(results, list):
                 for out in results:
                     diffs.extend(out.flatten())

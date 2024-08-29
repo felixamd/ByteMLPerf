@@ -94,7 +94,7 @@ class RuntimeBackendMIGRAPHX(runtime_backend.RuntimeBackend):
                         results[ self.outputs[0] ] = np.array( _results[0].tolist() ).reshape( _results[0].get_shape().lens() )
                     else:
                         for i in range( len( self.outputs ) ):
-                            results[ self.outputs[i] ] = [ np.array( _results[i] ).reshape( _results[i].get_shape().lens() ) ]
+                            results[ self.outputs[i] ] = np.array( _results[i].tolist() ).reshape( _results[i].get_shape().lens() )
             assert len(results) != 0
 
         elif self.framework == "Pytorch":

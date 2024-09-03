@@ -87,7 +87,7 @@ class CompileBackendMIGRAPHX(compile_backend.CompileBackend):
             if not os.path.exists(model_dir):
                 os.makedirs(model_dir)
             model_paths = model_onnx_path_set_batch_size.split('.')
-            model_path = model_paths[0] + "_optimized." + model_paths[1]
+            model_path = model_paths[0] + "_optimized.mxr"
             updated_model_paths.append(model_path)
             if not os.path.exists(model_path):
                 new_input = {}

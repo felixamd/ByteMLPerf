@@ -54,11 +54,13 @@ def main():
                 print(file)
 
     if parsed_args.task:
+        '''
         log.info("******************* Pip Package Installing *******************")
         subprocess.call([
             'python3', '-m', 'pip', 'install', 'pip', '--upgrade', '--quiet'])
         subprocess.call([
             'python3', '-m', 'pip', 'install', '-r', 'general_perf/requirements.txt', '--quiet'])
+        '''
 
         workload = load_workload(parsed_args.task)
         with open("general_perf/model_zoo/" + workload['model'] + '.json', 'r') as file:

@@ -20,7 +20,7 @@ import subprocess
 import time
 
 from typing import Any, Dict, Tuple
-import virtualenv
+#import virtualenv
 from prompt_toolkit.shortcuts import radiolist_dialog, input_dialog, yes_no_dialog
 from prompt_toolkit.styles import Style
 

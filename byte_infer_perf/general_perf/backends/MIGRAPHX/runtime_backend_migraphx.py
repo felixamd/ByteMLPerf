@@ -23,7 +23,17 @@ pt_dtype_map = {
     "INT8": torch.int8,
     "INT32": torch.int32,
     "LONG": torch.long,
-    "BOOL": torch.bool
+    "BOOL": torch.bool,
+    0: torch.bool,
+    1: torch.float16,
+    2: torch.float32,
+    3: torch.float64,
+    4: torch.uint8,
+    5: torch.int8,
+#    6: uint16 unsupported
+    7: torch.int16,
+    8: torch.int32,
+    9: torch.long,
 }
 
 tf_dtype_map = {
@@ -75,7 +85,10 @@ class RuntimeBackendMIGRAPHX(runtime_backend.RuntimeBackend):
 
             results = {}
             for model_runtime in self.model_runtimes:
+                start_time = time.time()        
                 _results = model_runtime.run( params )
+                print(f'time elapsed: {time.time() - start_time}')
+
                 # For videobert, the shape of the output is quite different from that of the other models
                 if( 'videobert' in self.configs['model'] ):
                     if( isinstance( _results , dict ) ):
@@ -90,12 +103,13 @@ class RuntimeBackendMIGRAPHX(runtime_backend.RuntimeBackend):
                     assert( len(_results) == 2 )
                     results[ self.outputs[0] ] = np.array( _results[1].tolist() ).reshape( _results[1].get_shape().lens() )
                 else:
-                    if( len( self.outputs ) == 1 ):
-                        results[ self.outputs[0] ] = np.array( _results[0].tolist() ).reshape( _results[0].get_shape().lens() )
-                    else:
-                        for i in range( len( self.outputs ) ):
-                            results[ self.outputs[i] ] = np.array( _results[i].tolist() ).reshape( _results[i].get_shape().lens() )
+                    for i in range( len( self.outputs ) ):
+                        result_shape = _results[i].get_shape()
+                        results[ self.outputs[i] ] = np.array(torch.frombuffer(_results[i], dtype=pt_dtype_map[result_shape.type()]).reshape(result_shape.lens()))
+                        # results[ self.outputs[i] ] = np.array( _results[i].tolist() ).reshape( _results[i].get_shape().lens() )
+
             assert len(results) != 0
+
 
         elif self.framework == "Pytorch":
             # currently this path of code has not been implemented yet
@@ -167,14 +181,15 @@ class RuntimeBackendMIGRAPHX(runtime_backend.RuntimeBackend):
             self.outputs = segment['output_tensor_map'].split(",")
 
             if( self.framework == "Tensorflow" or self.framework == "Onnx"):
-                for i, ( batch_size , temp_onnx_file_path ) in enumerate( zip( segment['compiled_model'][0]['compiled_bs'] , segment['compiled_model'][0]['compiled_obj'] ) ):
+                for i, ( batch_size , temp_mxr_file_path ) in enumerate( zip( segment['compiled_model'][0]['compiled_bs'] , segment['compiled_model'][0]['compiled_obj'] ) ):
                     if( batch_size == self.batch_size ):
-                        onnx_file_path = temp_onnx_file_path
+                        mxr_file_path = temp_mxr_file_path
                         break
                 import migraphx
-                onnx_file_path_for_batch_size = onnx_file_path.rsplit("/",2)
-                onnx_file_path=os.path.join(onnx_file_path_for_batch_size[0],str(self.batch_size)+'-'+self.configs['compile_precision'].lower(),onnx_file_path_for_batch_size[-1])
-                model=migraphx.load(onnx_file_path,format='msgpack')
+                mxr_file_path_for_batch_size = mxr_file_path.rsplit("/",2)
+                mxr_file_path=os.path.join(mxr_file_path_for_batch_size[0],str(self.batch_size)+'-'+self.configs['compile_precision'].lower(),mxr_file_path_for_batch_size[-1])
+                print(f'mxr_file_path: {mxr_file_path}')
+                model=migraphx.load(mxr_file_path,format='msgpack')
             elif self.framework == "Pytorch":
                 raise NotImplementedError("MIGraphX backend for models of PyTorch framework has not been implemented yet.")
             else:

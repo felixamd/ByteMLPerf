@@ -85,10 +85,7 @@ class RuntimeBackendMIGRAPHX(runtime_backend.RuntimeBackend):
 
             results = {}
             for model_runtime in self.model_runtimes:
-                start_time = time.time()        
                 _results = model_runtime.run( params )
-                print(f'time elapsed: {time.time() - start_time}')
-
                 # For videobert, the shape of the output is quite different from that of the other models
                 if( 'videobert' in self.configs['model'] ):
                     if( isinstance( _results , dict ) ):
@@ -109,7 +106,6 @@ class RuntimeBackendMIGRAPHX(runtime_backend.RuntimeBackend):
                         # results[ self.outputs[i] ] = np.array( _results[i].tolist() ).reshape( _results[i].get_shape().lens() )
 
             assert len(results) != 0
-
 
         elif self.framework == "Pytorch":
             # currently this path of code has not been implemented yet

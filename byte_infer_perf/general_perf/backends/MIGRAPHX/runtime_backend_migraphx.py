@@ -98,7 +98,8 @@ class RuntimeBackendMIGRAPHX(runtime_backend.RuntimeBackend):
                     results = [ results ]
                 elif('resnet50-tf-fp16' in self.configs['model'] ):
                     assert( len(_results) == 2 )
-                    results[ self.outputs[0] ] = np.array( _results[1].tolist() ).reshape( _results[1].get_shape().lens() )
+                    result_shape = _results[1].get_shape()
+                    results[ self.outputs[0] ] = np.array(torch.frombuffer(_results[1], dtype=pt_dtype_map[result_shape.type()]).reshape(result_shape.lens()))
                 else:
                     for i in range( len( self.outputs ) ):
                         result_shape = _results[i].get_shape()

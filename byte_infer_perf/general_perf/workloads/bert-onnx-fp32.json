@@ -1,5 +1,5 @@
 {
-    "model": "clip-onnx-fp32",
+    "model": "bert-onnx-fp32",
     "test_perf": true,
     "test_accuracy": false,
     "test_numeric": false,

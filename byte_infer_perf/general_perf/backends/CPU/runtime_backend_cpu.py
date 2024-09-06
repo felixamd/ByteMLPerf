@@ -2,7 +2,7 @@ import os
 import json
 import logging
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-#import tensorflow as tf
+import tensorflow as tf
 import torch
 import onnxruntime
 import time
@@ -56,7 +56,8 @@ class RuntimeBackendCPU(runtime_backend.RuntimeBackend):
             real_feeds = get_real_feeds(feeds, all_sn_inputs)
 
             for model_runtime in self.model_runtimes:
-                with tf.device('/CPU:0'):
+                #with tf.device('/CPU:0'):
+                with tf.device('/GPU:0'):
                     _results = model_runtime.signatures['serving_default'](
                         **real_feeds)
 
@@ -150,7 +151,8 @@ class RuntimeBackendCPU(runtime_backend.RuntimeBackend):
             self.outputs = segment['output_tensor_map'].split(",")
 
             if self.framework == "Tensorflow":
-                with tf.device('/CPU:0'):
+                #with tf.device('/CPU:0'):
+                with tf.device('/GPU:0'):
                     model = tf.saved_model.load(
                         segment['compiled_model'][0]['compiled_obj'])
             elif self.framework == "Pytorch":
@@ -194,14 +196,14 @@ class RuntimeBackendCPU(runtime_backend.RuntimeBackend):
                         providers=[('TensorrtExecutionProvider', {
                                     'device_id': 0,                       # Select GPU to execute
                                     'trt_max_workspace_size': 2147483648, # Set GPU memory usage limit
-                                    'trt_fp16_enable': True,              # Enable FP16 precision for faster inference
+                                    'trt_fp16_enable': False,              # Enable FP16 precision for faster inference
                                     })]
                         )
                 else:
                     model = onnxruntime.InferenceSession(
                         segment['compiled_model'][0]['compiled_obj'],
-                        #providers=['TensorrtExecutionProvider'])
-                        providers=['CUDAExecutionProvider'])
+                        providers=['TensorrtExecutionProvider'])
+                        #providers=['CUDAExecutionProvider'])
                         #providers=['CPUExecutionProvider'])
 
             self.model_runtimes.append(model)

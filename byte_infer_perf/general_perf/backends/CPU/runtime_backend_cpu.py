@@ -56,8 +56,8 @@ class RuntimeBackendCPU(runtime_backend.RuntimeBackend):
             real_feeds = get_real_feeds(feeds, all_sn_inputs)
 
             for model_runtime in self.model_runtimes:
-                #with tf.device('/CPU:0'):
-                with tf.device('/GPU:0'):
+                device_name = '/GPU:0' if self.nvgpu == True else '/CPU:0'
+                with tf.device(device_name):
                     _results = model_runtime.signatures['serving_default'](
                         **real_feeds)
 
@@ -152,8 +152,8 @@ class RuntimeBackendCPU(runtime_backend.RuntimeBackend):
             self.outputs = segment['output_tensor_map'].split(",")
 
             if self.framework == "Tensorflow":
-                device_name_tf = '/GPU:0' if self.nvgpu == True else '/CPU:0'
-                with tf.device(device_name_tf):
+                device_name = '/GPU:0' if self.nvgpu == True else '/CPU:0'
+                with tf.device(device_name):
                     model = tf.saved_model.load(
                         segment['compiled_model'][0]['compiled_obj'])
             elif self.framework == "Pytorch":

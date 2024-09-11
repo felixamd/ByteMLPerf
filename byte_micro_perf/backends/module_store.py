@@ -288,10 +288,10 @@ class P2POp(torch.nn.Module):
         self.rank_size = len(ranks)
 
     def next_rank(self):
-        return self.ranks[(self.rank + 1) % self.rank_size]
+        return self.ranks[(self.rank - 1 + self.rank_size) % self.rank_size]
 
     def prev_rank(self):
-        return self.ranks[(self.rank - 1) % self.rank_size]
+        return self.ranks[(self.rank + 1) % self.rank_size]
 
     def forward(self, send_tensor, recv_tensor):
         reqs = []

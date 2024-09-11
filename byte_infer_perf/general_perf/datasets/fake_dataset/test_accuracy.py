@@ -24,35 +24,35 @@ log = logging.getLogger("TestAccuracy")
 
 class AccuracyChecker(test_accuracy.AccuracyChecker):
 
-    def calculate_acc(self, data_percent=10):
+    def calculate_acc(self, data_percent=10, nvgpu=False):
         log.info("Start to calculate accuracy...")
         num = int((data_percent / 100) * self.dataloader.get_batch_count()
                   ) if data_percent else self.dataloader.get_batch_count()
 
         diffs = []
 
-        # add warmup
-        WARMUP = 10
-        print('start of warmup ({})...'.format(WARMUP))
-        for i in range(WARMUP):
-            test_data = self.dataloader.get_samples(i)
-            results = self.runtime_backend.predict(test_data)
+        if nvgpu:
+            # add warmup
+            WARMUP = 10
+            print('start of warmup ({})...'.format(WARMUP))
+            for i in range(WARMUP):
+                test_data = self.dataloader.get_samples(i)
+                results = self.runtime_backend.predict(test_data)
+            times_range = []
+            print('start of benchmark ({})...'.format(num))
 
-        #test
-        times_range = []
-        print('start of benchmark ({})...'.format(num))
         for i in tqdm(range(num)):
             test_data = self.dataloader.get_samples(i)
 
-            #test
-            import time
-            start_time = time.time()
+            if nvgpu:
+                import time
+                start_time = time.time()
 
             results = self.runtime_backend.predict(test_data)
 
-            #test
-            end_time = time.time()
-            times_range.append(end_time - start_time)
+            if nvgpu:
+                end_time = time.time()
+                times_range.append(end_time - start_time)
 
             if isinstance(results, dict):
                 list_key = list(results.keys())
@@ -65,20 +65,16 @@ class AccuracyChecker(test_accuracy.AccuracyChecker):
             else:
                 diffs.extend(results)
 
-        #test
-        times_range.sort()
-        tail_latency = round(
-            times_range[int(len(times_range) * 0.99)] * 1000, 2)
-        avg_latency = round(sum(times_range) / num * 1000, 2)
-        batch_size = 4
-        qps = int(1000.0 * batch_size / avg_latency)
-        log.info(
-            '[accuracy] Batch size is {}, QPS: {}, Avg Latency:{}, Tail Latency:{}'.
-            format(batch_size, qps, avg_latency, tail_latency))
-
-
-
-
+        if nvgpu:
+            times_range.sort()
+            tail_latency = round(
+                times_range[int(len(times_range) * 0.99)] * 1000, 2)
+            avg_latency = round(sum(times_range) / num * 1000, 2)
+            batch_size = 4
+            qps = int(1000.0 * batch_size / avg_latency)
+            log.info(
+                '[accuracy] Batch size is {}, QPS: {}, Avg Latency:{}, Tail Latency:{}'.
+                format(batch_size, qps, avg_latency, tail_latency))
 
         np.save(self.output_dir + "/{}.npy".format(self.dataloader.name()),
                 np.array(diffs),

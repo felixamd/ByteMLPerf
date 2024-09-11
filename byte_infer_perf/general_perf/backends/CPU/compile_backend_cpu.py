@@ -2,7 +2,7 @@ import os
 import json
 import logging
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-#mport tensorflow as tf
+import tensorflow as tf
 import torch
 import onnxruntime
 import time
@@ -36,6 +36,8 @@ class CompileBackendCPU(compile_backend.CompileBackend):
         self.model_runtimes = []
 
     def compile(self, config, dataloader=None):
+        nvgpu = 'nvgpu' in config['workload'] and config['workload']['nvgpu'] == True
+
         result = {
             "model":
             config['model_info']['model'],
@@ -71,7 +73,8 @@ class CompileBackendCPU(compile_backend.CompileBackend):
                         },
                     ],
                 },
-            ]
+            ],
+            "nvgpu": nvgpu
         }
         self.configs = result
         self.workload = config['workload']

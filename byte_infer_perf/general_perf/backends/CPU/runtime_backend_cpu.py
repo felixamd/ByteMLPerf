@@ -139,6 +139,7 @@ class RuntimeBackendCPU(runtime_backend.RuntimeBackend):
         self.framework = self.configs['framework']
 
         self.model_name = self.configs['model']
+        self.nvgpu = self.configs['nvgpu']
 
         for i, segment in enumerate(self.configs['segments']):
             # there is no input/output meta data i the graph so it need to come from config.
@@ -151,8 +152,8 @@ class RuntimeBackendCPU(runtime_backend.RuntimeBackend):
             self.outputs = segment['output_tensor_map'].split(",")
 
             if self.framework == "Tensorflow":
-                #with tf.device('/CPU:0'):
-                with tf.device('/GPU:0'):
+                device_name_tf = '/GPU:0' if self.nvgpu == True else '/CPU:0'
+                with tf.device(device_name_tf):
                     model = tf.saved_model.load(
                         segment['compiled_model'][0]['compiled_obj'])
             elif self.framework == "Pytorch":
@@ -162,49 +163,29 @@ class RuntimeBackendCPU(runtime_backend.RuntimeBackend):
                     torch.device('cpu'))
                 model.eval()
             else:
-        
-                DO_QUANTIZATION = False
-                DO_CONVERSION = False
-                DO_TENSORRT = True
+                if self.nvgpu == True:
+                    # run GPU with CUDA provider by disabling DO_TENSORRT
+                    DO_TENSORRT = True
 
-                if DO_QUANTIZATION: # this is wrong and useless
-                    from onnxruntime.quantization import quantize_dynamic, QuantType
-                    model_fp32 = 'general_perf/clip-fp16.onnx'
-                    model_quant = './test_fp16.onnx'
-                    quantized_model = quantize_dynamic(model_fp32, model_quant)
-
-                    model = onnxruntime.InferenceSession(
-                        model_quant,
-                        #providers=['TensorrtExecutionProvider'])
-                        providers=['CUDAExecutionProvider'])
-                        #providers=['CPUExecutionProvider'])
-                elif DO_CONVERSION:
-                    from onnxconverter_common import float16
-                    import onnx
-                    model_fp32 = onnx.load(segment['compiled_model'][0]['compiled_obj'])
-                    model_fp16 = float16.convert_float_to_float16(model_fp32)
-                    onnx.save(model_fp16, "./temp_fp16.onnx")
-
-                    model = onnxruntime.InferenceSession(
-                        "./temp_fp16.onnx",
-                        providers=['TensorrtExecutionProvider'])
-                        #providers=['CUDAExecutionProvider'])
-                        #providers=['CPUExecutionProvider'])
-                elif DO_TENSORRT:
-                    model = onnxruntime.InferenceSession(
-                        segment['compiled_model'][0]['compiled_obj'],
-                        providers=[('TensorrtExecutionProvider', {
-                                    'device_id': 0,                       # Select GPU to execute
-                                    'trt_max_workspace_size': 2147483648, # Set GPU memory usage limit
-                                    'trt_fp16_enable': False,              # Enable FP16 precision for faster inference
-                                    })]
-                        )
+                    if DO_TENSORRT:
+                        model = onnxruntime.InferenceSession(
+                            segment['compiled_model'][0]['compiled_obj'],
+                            providers=[('TensorrtExecutionProvider', {
+                                        'device_id': 0,                       # Select GPU to execute
+                                        'trt_max_workspace_size': 2147483648, # Set GPU memory usage limit
+                                        'trt_fp16_enable': False,             # Enable FP16 precision for faster inference
+                                        })]
+                            )
+                    else:
+                        model = onnxruntime.InferenceSession(
+                            segment['compiled_model'][0]['compiled_obj'],
+                            providers=['CUDAExecutionProvider']
+                            )
                 else:
                     model = onnxruntime.InferenceSession(
                         segment['compiled_model'][0]['compiled_obj'],
-                        providers=['TensorrtExecutionProvider'])
-                        #providers=['CUDAExecutionProvider'])
-                        #providers=['CPUExecutionProvider'])
+                        providers=['CPUExecutionProvider']
+                        )
 
             self.model_runtimes.append(model)
 

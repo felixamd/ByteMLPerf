@@ -158,10 +158,10 @@ class RuntimeBackendCPU(runtime_backend.RuntimeBackend):
                     model = tf.saved_model.load(
                         segment['compiled_model'][0]['compiled_obj'])
             elif self.framework == "Pytorch":
-                self.device = "cpu"
+                self.device = 'cuda' if self.nvgpu == True else 'cpu'
                 model = torch.jit.load(
                     segment['compiled_model'][0]['compiled_obj'],
-                    torch.device('cpu'))
+                    torch.device(self.device))
                 model.eval()
             else:
                 if self.nvgpu == True:

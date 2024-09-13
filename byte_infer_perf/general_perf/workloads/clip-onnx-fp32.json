@@ -8,5 +8,6 @@
     "batch_sizes":[4,8,16,24],
     "data_percent": 100,
     "compile_only": false,
-    "nvgpu": false
+    "nvgpu": false,
+    "amdgpu": true
 }

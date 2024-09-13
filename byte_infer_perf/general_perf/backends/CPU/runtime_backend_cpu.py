@@ -140,6 +140,7 @@ class RuntimeBackendCPU(runtime_backend.RuntimeBackend):
 
         self.model_name = self.configs['model']
         self.nvgpu = self.configs['nvgpu']
+        self.amdgpu = self.configs['amdgpu']
 
         for i, segment in enumerate(self.configs['segments']):
             # there is no input/output meta data i the graph so it need to come from config.
@@ -181,6 +182,15 @@ class RuntimeBackendCPU(runtime_backend.RuntimeBackend):
                             segment['compiled_model'][0]['compiled_obj'],
                             providers=['CUDAExecutionProvider']
                             )
+                elif self.amdgpu:
+                    model = onnxruntime.InferenceSession(
+                        segment['compiled_model'][0]['compiled_obj'],
+                        providers=[('MIGraphXExecutionProvider', {
+                                    'device_id': 0,                       # Select GPU to execute
+                                    'migraphx_fp16_enable': False,        # NOT working, use ORT_MIGRAPHX_FP16_ENABLE=1 before running script
+                                    
+                                    })]
+                        )
                 else:
                     model = onnxruntime.InferenceSession(
                         segment['compiled_model'][0]['compiled_obj'],

@@ -37,6 +37,7 @@ class CompileBackendCPU(compile_backend.CompileBackend):
 
     def compile(self, config, dataloader=None):
         nvgpu = 'nvgpu' in config['workload'] and config['workload']['nvgpu'] == True
+        amdgpu = 'amdgpu' in config['workload'] and config['workload']['amdgpu'] == True
 
         result = {
             "model":
@@ -74,7 +75,8 @@ class CompileBackendCPU(compile_backend.CompileBackend):
                     ],
                 },
             ],
-            "nvgpu": nvgpu
+            "nvgpu": nvgpu,
+            "amdgpu": amdgpu
         }
         self.configs = result
         self.workload = config['workload']

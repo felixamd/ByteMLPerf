@@ -192,7 +192,7 @@ class PerfEngine:
             log.info("******************************************* Running Accuracy Checker... *******************************************")
 
             dataset.rebatch(self.runtime_backend.get_loaded_batch_size())
-            if workload['nvgpu'] == True:
+            if 'nvgpu' in workload and workload['nvgpu'] == True:
                 accuracy_results = AccuracyChecker.calculate_acc(
                     workload['data_percent'], True)
             else:

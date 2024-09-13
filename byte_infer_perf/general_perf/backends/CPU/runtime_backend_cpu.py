@@ -163,8 +163,9 @@ class RuntimeBackendCPU(runtime_backend.RuntimeBackend):
                     segment['compiled_model'][0]['compiled_obj'],
                     torch.device(self.device))
                 model.eval()
-            else:
-                if self.nvgpu == True:
+            else: # ONNX
+                is_fp16 = self.configs['compile_precision'].lower() == 'fp16'
+                if self.nvgpu:
                     # run GPU with CUDA provider by disabling DO_TENSORRT
                     DO_TENSORRT = True
 
@@ -174,7 +175,7 @@ class RuntimeBackendCPU(runtime_backend.RuntimeBackend):
                             providers=[('TensorrtExecutionProvider', {
                                         'device_id': 0,                       # Select GPU to execute
                                         'trt_max_workspace_size': 2147483648, # Set GPU memory usage limit
-                                        'trt_fp16_enable': False,             # Enable FP16 precision for faster inference
+                                        'trt_fp16_enable': is_fp16,             # Enable FP16 precision for faster inference
                                         })]
                             )
                     else:
@@ -187,7 +188,7 @@ class RuntimeBackendCPU(runtime_backend.RuntimeBackend):
                         segment['compiled_model'][0]['compiled_obj'],
                         providers=[('MIGraphXExecutionProvider', {
                                     'device_id': 0,                       # Select GPU to execute
-                                    'migraphx_fp16_enable': False,        # NOT working, use ORT_MIGRAPHX_FP16_ENABLE=1 before running script
+                                    'migraphx_fp16_enable': is_fp16,        # NOT working, use ORT_MIGRAPHX_FP16_ENABLE=1 before running script
                                     
                                     })]
                         )

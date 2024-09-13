@@ -190,15 +190,9 @@ class PerfEngine:
 
         if workload['test_accuracy']:
             log.info("******************************************* Running Accuracy Checker... *******************************************")
-
             dataset.rebatch(self.runtime_backend.get_loaded_batch_size())
-            if 'nvgpu' in workload and workload['nvgpu'] == True:
-                accuracy_results = AccuracyChecker.calculate_acc(
-                    workload['data_percent'], True)
-            else:
-                accuracy_results = AccuracyChecker.calculate_acc(
-                    workload['data_percent'])
-
+            accuracy_results = AccuracyChecker.calculate_acc(
+                workload['data_percent'])
             accuracy_report['Data Percent'] = workload['data_percent']
             accuracy_report.update(accuracy_results)
 
@@ -208,8 +202,13 @@ class PerfEngine:
 
             dataset.rebatch(self.runtime_backend.get_loaded_batch_size())
             if not workload['test_accuracy']:
-                accuracy_results = AccuracyChecker.calculate_acc(
-                    workload['data_percent'])
+                if ('nvgpu' in workload and workload['nvgpu'] == True) or \
+                   ('amdgpu' in workload and workload['amdgpu'] == True):
+                    accuracy_results = AccuracyChecker.calculate_acc(
+                        workload['data_percent'], True)
+                else:
+                    accuracy_results = AccuracyChecker.calculate_acc(
+                        workload['data_percent'])
             diff_results = AccuracyChecker.calculate_diff()
             accuracy_report.update(diff_results)
             accuracy_report['Diff Dist'] = compile_info['model'] + '-to-' + compile_info['compile_precision'].lower() + ".png"

@@ -24,14 +24,14 @@ log = logging.getLogger("TestAccuracy")
 
 class AccuracyChecker(test_accuracy.AccuracyChecker):
 
-    def calculate_acc(self, data_percent=10, nvgpu=False):
+    def calculate_acc(self, data_percent=10, is_gpu=False):
         log.info("Start to calculate accuracy...")
         num = int((data_percent / 100) * self.dataloader.get_batch_count()
                   ) if data_percent else self.dataloader.get_batch_count()
 
         diffs = []
 
-        if nvgpu:
+        if is_gpu:
             # add warmup
             WARMUP = 10
             print('start of warmup ({})...'.format(WARMUP))
@@ -44,13 +44,13 @@ class AccuracyChecker(test_accuracy.AccuracyChecker):
         for i in tqdm(range(num)):
             test_data = self.dataloader.get_samples(i)
 
-            if nvgpu:
+            if is_gpu:
                 import time
                 start_time = time.time()
 
             results = self.runtime_backend.predict(test_data)
 
-            if nvgpu:
+            if is_gpu:
                 end_time = time.time()
                 times_range.append(end_time - start_time)
 
@@ -65,7 +65,7 @@ class AccuracyChecker(test_accuracy.AccuracyChecker):
             else:
                 diffs.extend(results)
 
-        if nvgpu:
+        if is_gpu:
             times_range.sort()
             tail_latency = round(
                 times_range[int(len(times_range) * 0.99)] * 1000, 2)

@@ -7,7 +7,5 @@
     "iterations": 100,
     "batch_sizes":[4,8,16,24],
     "data_percent": 100,
-    "compile_only": false,
-    "nvgpu": false,
-    "amdgpu": false
+    "compile_only": false
 }

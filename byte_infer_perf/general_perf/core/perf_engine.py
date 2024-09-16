@@ -202,8 +202,8 @@ class PerfEngine:
 
             dataset.rebatch(self.runtime_backend.get_loaded_batch_size())
             if not workload['test_accuracy']:
-                if ('nvgpu' in workload and workload['nvgpu'] == True) or \
-                   ('amdgpu' in workload and workload['amdgpu'] == True):
+                if (("DO_MIGRAPHX" in os.environ and os.environ["DO_MIGRAPHX"] == "1") or \
+                    ("DO_TENSORRT" in os.environ and os.environ["DO_TENSORRT"] == "1")):
                     accuracy_results = AccuracyChecker.calculate_acc(
                         workload['data_percent'], True)
                 else:

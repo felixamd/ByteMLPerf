@@ -10,7 +10,7 @@ import numpy as np
 
 from general_perf.backends import compile_backend
 
-log = logging.getLogger("CompileBackendCPU")
+log = logging.getLogger("CompileBackendGPU")
 
 pt_dtype_map = {
     "FLOAT32": torch.float32,
@@ -28,10 +28,10 @@ INPUT_TYPE = {
 }
 
 
-class CompileBackendCPU(compile_backend.CompileBackend):
+class CompileBackendGPU(compile_backend.CompileBackend):
     def __init__(self):
-        super(CompileBackendCPU, self).__init__()
-        self.hardware_type = 'CPU'
+        super(CompileBackendGPU, self).__init__()
+        self.hardware_type = 'GPU'
         self.need_reload = False
         self.model_runtimes = []
 
@@ -80,7 +80,7 @@ class CompileBackendCPU(compile_backend.CompileBackend):
 
     def get_interact_profile(self, config):
         model_profile = []
-        file_path = "general_perf/backends/CPU/" + self.hardware_type + '.json'
+        file_path = "general_perf/backends/GPU/" + self.hardware_type + '.json'
         if os.path.exists(file_path):
             with open(file_path, 'r') as f:
                 model_profile = json.load(f)

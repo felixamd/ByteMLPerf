@@ -10,7 +10,7 @@ import numpy as np
 
 from general_perf.backends import runtime_backend
 
-log = logging.getLogger("BackendCPU")
+log = logging.getLogger("BackendGPU")
 
 pt_dtype_map = {
     "FLOAT32": torch.float32,
@@ -29,10 +29,10 @@ INPUT_TYPE = {
 }
 
 
-class RuntimeBackendCPU(runtime_backend.RuntimeBackend):
+class RuntimeBackendGPU(runtime_backend.RuntimeBackend):
     def __init__(self):
-        super(RuntimeBackendCPU, self).__init__()
-        self.hardware_type = 'CPU'
+        super(RuntimeBackendGPU, self).__init__()
+        self.hardware_type = 'GPU'
         self.need_reload = False
         self.model_runtimes = []
         self.configs = None
@@ -56,7 +56,7 @@ class RuntimeBackendCPU(runtime_backend.RuntimeBackend):
             real_feeds = get_real_feeds(feeds, all_sn_inputs)
 
             for model_runtime in self.model_runtimes:
-                with tf.device('/CPU:0'):
+                with tf.device('/GPU:0'):
                     _results = model_runtime.signatures['serving_default'](
                         **real_feeds)
 
@@ -150,20 +150,47 @@ class RuntimeBackendCPU(runtime_backend.RuntimeBackend):
             self.outputs = segment['output_tensor_map'].split(",")
 
             if self.framework == "Tensorflow":
-                with tf.device('/CPU:0'):
+                with tf.device('/GPU:0'):
                     model = tf.saved_model.load(
                         segment['compiled_model'][0]['compiled_obj'])
             elif self.framework == "Pytorch":
                 model = torch.jit.load(
                     segment['compiled_model'][0]['compiled_obj'],
-                    torch.device('cpu'))
+                    torch.device('cuda'))
                 model.eval()
             else: # ONNX
-                model = onnxruntime.InferenceSession(
-                    segment['compiled_model'][0]['compiled_obj'],
-                    providers=['CPUExecutionProvider']
-                    )
-
+                is_fp16 = self.configs['compile_precision'].lower() == 'fp16'
+                if hasattr(torch.version, 'hip') and torch.version.hip is not None:
+                    if "DO_MIGRAPHX" in os.environ and os.environ["DO_MIGRAPHX"] == "1":
+                        model = onnxruntime.InferenceSession(
+                            segment['compiled_model'][0]['compiled_obj'],
+                            providers=[('MIGraphXExecutionProvider', {
+                                        'device_id': 0,                       # Select GPU to execute
+                                        'migraphx_fp16_enable': is_fp16,        # NOT working, use ORT_MIGRAPHX_FP16_ENABLE=1 before running script
+                                        })]
+                            )
+                    else:
+                        model = onnxruntime.InferenceSession(
+                            segment['compiled_model'][0]['compiled_obj'],
+                            providers=['ROCMExecutionProvider']               # only work on an onnx-setup docker
+                            #providers=[("ROCMExecutionProvider", {"device_id": torch.cuda.current_device(),
+                            #            "user_compute_stream": str(torch.cuda.current_stream().cuda_stream)})]
+                            )
+                else:
+                    if "DO_TENSORRT" in os.environ and os.environ["DO_TENSORRT"] == "1":
+                        model = onnxruntime.InferenceSession(
+                            segment['compiled_model'][0]['compiled_obj'],
+                            providers=[('TensorrtExecutionProvider', {
+                                        'device_id': 0,                       # Select GPU to execute
+                                        'trt_max_workspace_size': 2147483648, # Set GPU memory usage limit
+                                        'trt_fp16_enable': is_fp16,             # Enable FP16 precision for faster inference
+                                        })]
+                            )
+                    else:
+                        model = onnxruntime.InferenceSession(
+                            segment['compiled_model'][0]['compiled_obj'],
+                            providers=['CUDAExecutionProvider']
+                            )
             self.model_runtimes.append(model)
 
     def _get_fake_samples(self, batch_size, shape, input_type):

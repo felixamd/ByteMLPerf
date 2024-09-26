@@ -21,8 +21,8 @@
 #include "cuda_compat.h"
 
 #include <algorithm>
-#include "../attention/dtype_fp8.cuh"
-#include "../quantization/fp8/amd/quant_utils.cuh"
+#include "dtype_fp8.cuh"
+#include "quant_utils.cuh"
 
 #if defined(__HIPCC__) && (defined(__gfx90a__) || defined(__gfx940__) || \
                            defined(__gfx941__) || defined(__gfx942__))

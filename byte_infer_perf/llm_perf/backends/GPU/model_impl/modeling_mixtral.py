@@ -703,6 +703,35 @@ class MixtralFlashAttention2(MixtralAttention):
         )
 
 
+# page attention ops
+def pa_v1(
+    out: torch.Tensor,
+    query: torch.Tensor,
+    key_cache: torch.Tensor,
+    value_cache: torch.Tensor,
+    num_kv_heads: int,
+    scale: float,
+    block_tables: torch.Tensor,
+    seq_lens: torch.Tensor,
+    block_size: int,
+    max_seq_len: int,
+    alibi_slopes: Optional[torch.Tensor],
+    kv_cache_dtype: str,
+    k_scale: float,
+    v_scale: float,
+    tp_rank: int = 0,
+    blocksparse_local_blocks: int = 0,
+    blocksparse_vert_stride: int = 0,
+    blocksparse_block_size: int = 64,
+    blocksparse_head_sliding_step: int = 0,
+) -> None:
+    pa.paged_attention_v1(
+        out, query, key_cache, value_cache, num_kv_heads, scale, block_tables,
+        seq_lens, block_size, max_seq_len, alibi_slopes, kv_cache_dtype,
+        k_scale, v_scale, tp_rank, blocksparse_local_blocks,
+        blocksparse_vert_stride, blocksparse_block_size,
+        blocksparse_head_sliding_step)
+
 # Copied from transformers.models.mistral.modeling_mistral.MistralSdpaAttention with Mistral->Mixtral
 class MixtralSdpaAttention(MixtralAttention):
     """
@@ -847,41 +876,8 @@ class MixtralSdpaAttention(MixtralAttention):
         tmp_output = torch.empty(size=(bsz*q_len, self.num_heads, max_num_blocks_per_seq, self.head_dim), dtype= torch.float16, )
         exp_sums = torch.empty(size=(bsz*q_len, self.num_heads, max_num_blocks_per_seq), dtype=torch.float32, )
         max_logits = torch.empty_like(exp_sums)
-        #
-#    pagedAttn.paged_attention(
-#TypeError: paged_attention(): incompatible function arguments. The following argument types are supported:
-#    1. (arg0: torch.Tensor, arg1: torch.Tensor, arg2: torch.Tensor, arg3: torch.Tensor, arg4: torch.Tensor, arg5: torch.Tensor, arg6: torch.Tensor, arg7: int, arg8: float, arg9: torch.Tensor, arg10: torch.Tensor, arg11: int, arg12: int, arg13: Optional[torch.Tensor], arg14: str, arg15: float, arg16: float) -> None
-        
-    # page attention ops
-#def paged_attention_v1(
-#    out: torch.Tensor,
-#    query: torch.Tensor,
-#    key_cache: torch.Tensor,
-#    value_cache: torch.Tensor,
-#    num_kv_heads: int,
-#    scale: float,
-#    block_tables: torch.Tensor,
-#    seq_lens: torch.Tensor,
-#    block_size: int,
-#    max_seq_len: int,
-#    alibi_slopes: Optional[torch.Tensor],
-#    kv_cache_dtype: str,
-#    k_scale: float,
-#    v_scale: float,
-#    tp_rank: int = 0,
-#    blocksparse_local_blocks: int = 0,
-#    blocksparse_vert_stride: int = 0,
-#    blocksparse_block_size: int = 64,
-#    blocksparse_head_sliding_step: int = 0,
-#) -> None:
-#    pa.paged_attention_v1(
-#        out, query, key_cache, value_cache, num_kv_heads, scale, block_tables,
-#        seq_lens, block_size, max_seq_len, alibi_slopes, kv_cache_dtype,
-#        k_scale, v_scale, tp_rank, blocksparse_local_blocks,
-#        blocksparse_vert_stride, blocksparse_block_size,
-#        blocksparse_head_sliding_step)
 
-        pa.paged_attention_v1(
+        pa_v1(
             attn_output,
             query_states,
             key_states,
@@ -893,7 +889,7 @@ class MixtralSdpaAttention(MixtralAttention):
             block_size,
             max_kv_len,
             None,
-            torch.float16,
+            "auto",
             1.0,
             1.0,
         )

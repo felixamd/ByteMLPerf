@@ -83,7 +83,7 @@ def paged_attention_rocm(
     k_scale: float,
     v_scale: float,
 ) -> None:
-    pa.paged_attention(out, exp_sum, max_logits, tmp_out, query,
+    pa.paged_attention_rocm(out, exp_sum, max_logits, tmp_out, query,
                                       key_cache, value_cache, num_kv_heads,
                                       scale, block_tables, seq_lens,
                                       block_size, max_seq_len, alibi_slopes,

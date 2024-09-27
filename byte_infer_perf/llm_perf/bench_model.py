@@ -173,7 +173,7 @@ def perf_engine(xpu_config, workspace):
                 start_iters = 2
                 test_iter = 0
                 duration_ms = 0.
-                while duration_ms < 5000. and test_iter < 100:
+                while duration_ms < 5000. and test_iter < 1:
                     result = engine.mp_forward(input_template)
                     if start_iters > 0:
                         start_iters -= 1

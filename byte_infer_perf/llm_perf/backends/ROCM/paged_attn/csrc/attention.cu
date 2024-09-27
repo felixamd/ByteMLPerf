@@ -1071,7 +1071,7 @@ void paged_attention_custom_launcher(
       break;                                                    \
   }
 
-void paged_attention(
+void paged_attention_rocm(
     torch::Tensor& out,         // [num_seqs, num_heads, head_size]
     torch::Tensor& exp_sums,    // [num_seqs, num_heads, max_num_partitions]
     torch::Tensor& max_logits,  // [num_seqs, num_heads, max_num_partitions]

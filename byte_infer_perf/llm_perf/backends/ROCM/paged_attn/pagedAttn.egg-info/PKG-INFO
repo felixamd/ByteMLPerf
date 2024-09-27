@@ -1,0 +1,9 @@
+Metadata-Version: 2.1
+Name: pagedAttn
+Version: 0.1.0
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: Unix
+Requires-Python: >=3.8
+Requires-Dist: torch
+Requires-Dist: einops

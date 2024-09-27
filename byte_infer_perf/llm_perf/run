@@ -1,0 +1,1 @@
+ python3 ./bench_model.py --hardware_type GPU --model_config ./model_zoo/mixtral-torch-bf16-8x22b.json --tp_size 8 --max_batch_size 8

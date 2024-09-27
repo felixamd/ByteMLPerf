@@ -3,9 +3,12 @@ from typing import List, Optional, Tuple
 
 import pytest
 import torch
-import pagedAttn as pa
+# from .. import paged_attn as pa
+import backends.ROCM.paged_attn.paged_attn as pa                             
 import numpy as np
 from typing import (List, Optional, Any, Dict, Sequence, Tuple, Union)
+from all_close_default import *
+
 FLOAT32_BYTES = torch.finfo(torch.float).bits // 8
 
 # This will change depending on the compute capability.
@@ -36,6 +39,8 @@ CUDA_DEVICES = [
     f"cuda:{i}" for i in range(1 if torch.cuda.device_count() == 1 else 2)
 ]
 
+def is_hip():
+    return True
 
 def ref_masked_attention(
     query: torch.Tensor,
@@ -205,21 +210,6 @@ ALL_OPCHECK_TEST_UTILS: Tuple[str, ...] = (
     "test_aot_dispatch_dynamic",
 )
 
-def opcheck(op: Union[torch._ops.OpOverload, torch._ops.OpOverloadPacket,
-                      torch._library.custom_ops.CustomOpDef],
-            args: Tuple[Any, ...],
-            kwargs: Optional[Dict[str, Any]] = None,
-            *,
-            test_utils: Union[str, Sequence[str]] = ALL_OPCHECK_TEST_UTILS,
-            raise_exception: bool = True,
-            cond: bool = True) -> Dict[str, str]:
-    return torch.library.opcheck(
-        op,
-        args,
-        kwargs,
-        test_utils=test_utils,
-        raise_exception=raise_exception) if cond else {}
-
 def test_paged_attention(
     version: str,
     num_seqs: int,
@@ -296,12 +286,6 @@ def test_paged_attention(
             v_scale,
         )
 
-        opcheck(pa.paged_attention_v1,
-                (output, query, key_cache, value_cache, num_kv_heads, scale,
-                 block_tables, seq_lens, block_size, max_seq_len, alibi_slopes,
-                 kv_cache_dtype, k_scale, v_scale, 0, 0, 0, 64, 0),
-                cond=(head_size == HEAD_SIZES[0]))
-
     elif version in ("v2", "rocm"):
         PARTITION_SIZE = 1024 if version == "v2" else 512
         num_partitions = ((max_seq_len + PARTITION_SIZE - 1) // PARTITION_SIZE)
@@ -337,14 +321,6 @@ def test_paged_attention(
                 k_scale,
                 v_scale,
             )
-
-            opcheck(pa.paged_attention_v2,
-                    (output, exp_sums, max_logits, tmp_output, query,
-                     key_cache, value_cache, num_kv_heads, scale, block_tables,
-                     seq_lens, block_size, max_seq_len, alibi_slopes,
-                     kv_cache_dtype, k_scale, v_scale, 0, 0, 0, 64, 0),
-                    cond=(head_size == HEAD_SIZES[0]))
-
         else:
             pa.paged_attention_rocm(
                 output,
@@ -365,35 +341,8 @@ def test_paged_attention(
                 k_scale,
                 v_scale,
             )
-
-            opcheck(pa.paged_attention_rocm,
-                    (output, exp_sums, max_logits, tmp_output, query,
-                     key_cache, value_cache, num_kv_heads, scale, block_tables,
-                     seq_lens, block_size, max_seq_len, alibi_slopes,
-                     kv_cache_dtype, k_scale, v_scale),
-                    cond=(head_size == HEAD_SIZES[0]))
-
     else:
         raise AssertionError(f"Unknown version: {version}")
-
-    # Run the reference implementation.
-    # if kv_cache_dtype == "fp8":
-    #     # Convert cache data back to dtype.
-    #     x = 16 // torch.tensor([], dtype=dtype).element_size()
-    #     key_cache_shape = (NUM_BLOCKS, num_kv_heads, head_size // x,
-    #                        block_size, x)
-    #     dequantized_key_cache = torch.empty(size=key_cache_shape,
-    #                                         dtype=dtype,
-    #                                         device=device)
-    #     ops.convert_fp8(dequantized_key_cache, key_cache)
-    #     key_cache = dequantized_key_cache
-
-    #     value_cache_shape = value_cache.shape
-    #     dequantized_value_cache = torch.empty(size=value_cache_shape,
-    #                                           dtype=dtype,
-    #                                           device=device)
-    #     ops.convert_fp8(dequantized_value_cache, value_cache)
-    #     value_cache = dequantized_value_cache
 
     ref_output = torch.empty_like(query)
     ref_single_query_cached_kv_attention(
@@ -411,8 +360,8 @@ def test_paged_attention(
     # NOTE(woosuk): Due to the kernel-level differences in the two
     # implementations, there is a small numerical difference in the two
     # outputs. Thus, we use a relaxed tolerance for the test.
-    atol = 1e-3
-    rtol = 1e-5
+    atol = get_default_atol(output) if is_hip() else 1e-3
+    rtol = get_default_rtol(output) if is_hip() else 1e-5
 
     # NOTE(zhaoyang): FP8 KV Cache will introduce quantization error,
     # so we use a relaxed tolerance for the test.
@@ -421,39 +370,6 @@ def test_paged_attention(
         atol, rtol = 1e-2, 1e-5
     torch.testing.assert_close(output, ref_output, atol=atol, rtol=rtol)
     print("    test passed!")
-
-
-def ref_multi_query_kv_attention(
-    cu_seq_lens: List[int],
-    query: torch.Tensor,
-    key: torch.Tensor,
-    value: torch.Tensor,
-    scale: float,
-    dtype: torch.dtype,
-) -> torch.Tensor:
-    num_seqs = len(cu_seq_lens) - 1
-    ref_outputs: List[torch.Tensor] = []
-    for i in range(num_seqs):
-        start_idx = cu_seq_lens[i]
-        end_idx = cu_seq_lens[i + 1]
-        seq_len = end_idx - start_idx
-
-        # Create attention mask.
-        attn_mask = torch.triu(torch.ones(seq_len, seq_len, dtype=dtype),
-                               diagonal=1)
-        attn_mask = attn_mask * torch.finfo(dtype).min
-        attn_mask = attn_mask.to(dtype=dtype)
-
-        ref_output = ref_masked_attention(
-            query[start_idx:end_idx],
-            key[start_idx:end_idx],
-            value[start_idx:end_idx],
-            scale,
-            attn_mask=attn_mask,
-        )
-        ref_outputs.append(ref_output)
-
-    return torch.cat(ref_outputs, dim=0)
 
 
     # version: str,

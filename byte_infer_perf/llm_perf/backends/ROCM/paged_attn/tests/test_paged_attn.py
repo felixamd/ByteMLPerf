@@ -256,7 +256,7 @@ def test_paged_attention(
 
     # Call the paged attention kernel.
     output = torch.empty_like(query)
-    if version in ("v2", "rocm"):
+    if version in ("rocm"):
         PARTITION_SIZE = 1024 if version == "v2" else 512
         num_partitions = ((max_seq_len + PARTITION_SIZE - 1) // PARTITION_SIZE)
         assert PARTITION_SIZE % block_size == 0
@@ -271,33 +271,32 @@ def test_paged_attention(
         )
         max_logits = torch.empty_like(exp_sums)
 
-        if version == "rocm":
-            pa.paged_attention(
-                output,
-                exp_sums,
-                max_logits,
-                tmp_output,
-                query,
-                key_cache,
-                value_cache,
-                num_kv_heads,
-                scale,
-                block_tables,
-                seq_lens,
-                block_size,
-                max_seq_len,
-                alibi_slopes,
-                kv_cache_dtype,
-                k_scale,
-                v_scale,
-            )
+        pa.paged_attention(
+            output,
+            exp_sums,
+            max_logits,
+            tmp_output,
+            query,
+            key_cache,
+            value_cache,
+            num_kv_heads,
+            scale,
+            block_tables,
+            seq_lens,
+            block_size,
+            max_seq_len,
+            alibi_slopes,
+            kv_cache_dtype,
+            k_scale,
+            v_scale,
+        )
 
-            # opcheck(torch.ops._rocm_C.paged_attention,
-            #         (output, exp_sums, max_logits, tmp_output, query,
-            #          key_cache, value_cache, num_kv_heads, scale, block_tables,
-            #          seq_lens, block_size, max_seq_len, alibi_slopes,
-            #          kv_cache_dtype, k_scale, v_scale),
-            #         cond=(head_size == HEAD_SIZES[0]))
+        # opcheck(torch.ops._rocm_C.paged_attention,
+        #         (output, exp_sums, max_logits, tmp_output, query,
+        #          key_cache, value_cache, num_kv_heads, scale, block_tables,
+        #          seq_lens, block_size, max_seq_len, alibi_slopes,
+        #          kv_cache_dtype, k_scale, v_scale),
+        #         cond=(head_size == HEAD_SIZES[0]))
 
     else:
         raise AssertionError(f"Unknown version: {version}")

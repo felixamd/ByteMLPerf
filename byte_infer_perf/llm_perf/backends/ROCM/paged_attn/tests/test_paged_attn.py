@@ -1,13 +1,9 @@
 import random
-from typing import List, Optional, Tuple
-
-import pytest
+import itertools
 import torch
-# from .. import paged_attn as pa
 import backends.ROCM.paged_attn.paged_attn as pa                             
-import numpy as np
 from typing import (List, Optional, Any, Dict, Sequence, Tuple, Union)
-from all_close_default import *
+from utils import *
 
 FLOAT32_BYTES = torch.finfo(torch.float).bits // 8
 
@@ -39,8 +35,6 @@ CUDA_DEVICES = [
     f"cuda:{i}" for i in range(1 if torch.cuda.device_count() == 1 else 2)
 ]
 
-def is_hip():
-    return True
 
 def ref_masked_attention(
     query: torch.Tensor,
@@ -55,11 +49,6 @@ def ref_masked_attention(
     attn_weights = torch.softmax(attn_weights, dim=-1).to(value.dtype)
     out = torch.einsum("hqk,khd->qhd", attn_weights, value)
     return out
-
-def seed_everything(seed: int) -> None:
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.cuda.manual_seed_all(seed)
 
 def ref_single_query_cached_kv_attention(
     output: torch.Tensor,
@@ -116,99 +105,6 @@ def ref_single_query_cached_kv_attention(
         out = out.view(num_query_heads, head_size)
         output[i].copy_(out, non_blocking=True)
 
-
-STR_DTYPE_TO_TORCH_DTYPE = {
-    "half": torch.half,
-    "bfloat16": torch.bfloat16,
-    "float": torch.float,
-    "fp8": torch.uint8,
-    "fp8_e4m3": torch.uint8,
-    "fp8_e5m2": torch.uint8,
-}
-
-def get_kv_cache_torch_dtype(
-        cache_dtype: Optional[Union[str, torch.dtype]],
-        model_dtype: Optional[Union[str, torch.dtype]] = None) -> torch.dtype:
-    if isinstance(cache_dtype, str):
-        if cache_dtype == "auto":
-            if isinstance(model_dtype, str):
-                torch_dtype = STR_DTYPE_TO_TORCH_DTYPE[model_dtype]
-            elif isinstance(model_dtype, torch.dtype):
-                torch_dtype = model_dtype
-            else:
-                raise ValueError(f"Invalid model dtype: {model_dtype}")
-        elif cache_dtype in ["half", "bfloat16", "float"]:
-            torch_dtype = STR_DTYPE_TO_TORCH_DTYPE[cache_dtype]
-        elif cache_dtype == "fp8":
-            torch_dtype = torch.uint8
-        else:
-            raise ValueError(f"Invalid kv cache dtype: {cache_dtype}")
-    elif isinstance(cache_dtype, torch.dtype):
-        torch_dtype = cache_dtype
-    else:
-        raise ValueError(f"Invalid kv cache dtype: {cache_dtype}")
-    return torch_dtype
-
-def create_kv_caches_with_random(
-    num_blocks: int,
-    block_size: int,
-    num_layers: int,
-    num_heads: int,
-    head_size: int,
-    cache_dtype: Optional[Union[str, torch.dtype]],
-    model_dtype: Optional[Union[str, torch.dtype]] = None,
-    seed: int = 0,
-    device: Optional[str] = "cuda",
-) -> Tuple[List[torch.Tensor], List[torch.Tensor]]:
-
-    if cache_dtype == "fp8" and head_size % 16:
-        raise ValueError(
-            f"Does not support key cache of type fp8 with head_size {head_size}"
-        )
-
-    seed_everything(seed)
-
-    torch_dtype = get_kv_cache_torch_dtype(cache_dtype, model_dtype)
-
-    scale = head_size**-0.5
-    x = 16 // torch.tensor([], dtype=torch_dtype).element_size()
-    key_cache_shape = (num_blocks, num_heads, head_size // x, block_size, x)
-    key_caches: List[torch.Tensor] = []
-    for _ in range(num_layers):
-        key_cache = torch.empty(size=key_cache_shape,
-                                dtype=torch_dtype,
-                                device=device)
-        if cache_dtype in ["auto", "half", "bfloat16", "float"]:
-            key_cache.uniform_(-scale, scale)
-        # elif cache_dtype == 'fp8':
-        #     _generate_random_fp8(key_cache, -scale, scale)
-        else:
-            raise ValueError(
-                f"Does not support key cache of type {cache_dtype}")
-        key_caches.append(key_cache)
-
-    value_cache_shape = (num_blocks, num_heads, head_size, block_size)
-    value_caches: List[torch.Tensor] = []
-    for _ in range(num_layers):
-        value_cache = torch.empty(size=value_cache_shape,
-                                  dtype=torch_dtype,
-                                  device=device)
-        if cache_dtype in ["auto", "half", "bfloat16", "float"]:
-            value_cache.uniform_(-scale, scale)
-        # elif cache_dtype == 'fp8':
-        #     _generate_random_fp8(value_cache, -scale, scale)
-        else:
-            raise ValueError(
-                f"Does not support value cache of type {cache_dtype}")
-        value_caches.append(value_cache)
-    return key_caches, value_caches
-
-ALL_OPCHECK_TEST_UTILS: Tuple[str, ...] = (
-    "test_schema",
-    "test_autograd_registration",
-    "test_faketensor",
-    "test_aot_dispatch_dynamic",
-)
 
 def test_paged_attention(
     version: str,
@@ -372,33 +268,32 @@ def test_paged_attention(
     print("    test passed!")
 
 
-    # version: str,
-    # num_seqs: int,
-    # num_heads: Tuple[int, int],
-    # head_size: int,
-    # use_alibi: bool,
-    # block_size: int,
-    # dtype: torch.dtype,
-    # kv_cache_dtype: str,
-    # seed: int,
-    # device: str,
+def test_iters():
+    param_combinations = itertools.product(
+                                VERSIONS,
+                                NUM_GEN_SEQS,
+                                NUM_HEADS,
+                                HEAD_SIZES,
+                                USE_ALIBI,
+                                BLOCK_SIZES,
+                                DTYPES,
+                                KV_CACHE_DTYPE,
+                                CUDA_DEVICES
+                            )
+    for combination in param_combinations:
+        version, num_seqs, num_heads, head_size, use_alibi, \
+                block_size, dtype, kv_cache_dtype, device = combination
+        test_paged_attention(version=version,
+                             num_seqs=num_seqs,
+                             num_heads=num_heads,
+                             head_size=head_size,
+                             use_alibi=use_alibi,
+                             block_size=block_size,
+                             dtype=dtype,
+                             kv_cache_dtype=kv_cache_dtype,
+                             seed=0,
+                             device=device)
+
+
 if __name__ == "__main__":
-    for version in VERSIONS:
-        for num_seqs in NUM_GEN_SEQS:
-            for num_heads in NUM_HEADS:
-                for head_size in HEAD_SIZES:
-                    for use_alibi in USE_ALIBI:
-                        for block_size in BLOCK_SIZES:
-                            for dtype in DTYPES:
-                                for kv_cache_dtype in KV_CACHE_DTYPE:
-                                    for device in CUDA_DEVICES:
-                                        test_paged_attention(version=version,
-                                                            num_seqs=num_seqs,
-                                                            num_heads=num_heads,
-                                                            head_size=head_size,
-                                                            use_alibi=use_alibi,
-                                                            block_size=block_size,
-                                                            dtype=dtype,
-                                                            kv_cache_dtype=kv_cache_dtype,
-                                                            seed=0,
-                                                            device=device)
+    test_iters()

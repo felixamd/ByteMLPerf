@@ -800,6 +800,7 @@ class MixtralSdpaAttention(MixtralAttention):
         query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin, position_ids)
         print("=======after rope=quary=======", query_states.shape)
         query_states = query_states.view(bsz, self.num_heads, q_len, self.head_dim).transpose(1,2)
+        query_states = query_states.view(bsz*q_len, self.num_heads, self.head_dim)
         key_states = key_states.view(bsz, self.num_key_value_heads, q_len, self.head_dim).transpose(1,2)
         print("=======after trans back=quary=======", query_states.shape)
         
@@ -848,20 +849,26 @@ class MixtralSdpaAttention(MixtralAttention):
         x= 8
         r_block = bsz*q_len % block_size
         r_head_dim = self.head_dim%x
+        key_states = key_states.view(bsz*q_len, self.num_key_value_heads, self.head_dim)
         #key_states = key_states.view(self.num_key_value_heads, bsz*q_len, self.head_dim)
-        padding_size = (0, self.head_dim - r_head_dim, 0, block_size - r_block)
+        padding_size = (0, self.head_dim - r_head_dim, 0, 0, 0, block_size - r_block)
         torch.nn.functional.pad(key_states, padding_size, mode='constant', value=0)
-        #value_states = value_states.view(bsz,q_len, self.num_key_value_heads, self.head_dim)
         key_states = key_states.view(int((bsz*q_len + block_size -1)//block_size), block_size, self.num_key_value_heads, int((self.head_dim + x-1)//x), x)
         # [num_blocks, num_kv_heads,head_size/x, block_size, x]
         key_states = key_states.permute(0,2,3,1,4)
         key_states.contiguous()
+        value_states = value_states.view(bsz*q_len, self.num_key_value_heads, self.head_dim)
         torch.nn.functional.pad(value_states, padding_size, mode='constant', value=0)
         value_states = value_states.view(int((bsz*q_len + block_size -1)//block_size), block_size, self.num_key_value_heads, int((self.head_dim + x -1)//x * x))
         #[num_blocks, num_kv_heads, head_size, block_size]
         value_states = value_states.permute(0, 2, 3,1)
         value_states.contiguous()
-    
+   
+
+#=======after rope=quary======= torch.Size([1, 6, 1024, 128])
+#=======after trans back=quary======= torch.Size([1, 1024, 6, 128])
+#head size :6, thread_group_size:4
+
         # if attention_mask is not None:
         #     if attention_mask.size() != (bsz, 1, q_len, kv_seq_len):
         #         raise ValueError(
@@ -885,7 +892,7 @@ class MixtralSdpaAttention(MixtralAttention):
                 random.randint(0, max_num_blocks_per_seq - 1)
                 for _ in range(max_num_blocks_per_seq)
             ]
-            print("===============table==========",block_table)
+#            print("===============table==========",block_table)
             block_tables_lst.append(block_table)
         block_tables = torch.tensor(block_tables_lst, dtype=torch.int)
         seq_lens = torch.full((q_len,), max_kv_len, dtype=torch.int)
@@ -893,8 +900,8 @@ class MixtralSdpaAttention(MixtralAttention):
         tmp_output = torch.empty(size=(bsz*q_len, self.num_heads, max_num_blocks_per_seq, self.head_dim), dtype= torch.float16, )
         exp_sums = torch.empty(size=(bsz*q_len, self.num_heads, max_num_blocks_per_seq), dtype=torch.float32, )
         max_logits = torch.empty_like(exp_sums)
-        print("===============shape========================",attn_output.shape, query_states.shape, \
-              key_states.shape, value_states.shape, self.num_key_value_heads, block_tables.shape)
+        #print("===============shape========================",attn_output.shape, query_states.shape, \
+              #key_states.shape, value_states.shape, self.num_key_value_heads, block_tables.shape)
         #==========shape======================== torch.Size([1, 6, 1024, 128]) torch.Size([1, 6, 1024, 128]) torch.Size([64, 1, 16, 16, 8]) torch.Size([64, 1, 128, 16]) 1 torch.Size([1024, 64])
         pa_v1(
             attn_output,

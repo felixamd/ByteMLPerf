@@ -711,6 +711,7 @@ void paged_attention_v1_launcher(
   int kv_head_stride = key_cache.stride(1);
 
   [[maybe_unused]] int thread_group_size = MAX(WARP_SIZE / BLOCK_SIZE, 1);
+  printf("head size :%d, thread_group_size:%d\n",head_size, thread_group_size );
   assert(head_size % thread_group_size == 0);
 
   // NOTE: alibi_slopes is optional.

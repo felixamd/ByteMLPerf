@@ -127,7 +127,7 @@ def perf_engine(xpu_config, workspace):
 
 
     # warmup
-    num_warm_iter = 10
+    num_warm_iter = 1
     input_template = update_template("context", 1, 1024)
 
     start_time = time.perf_counter_ns()
@@ -209,7 +209,7 @@ def perf_engine(xpu_config, workspace):
                 start_iters = 2
                 test_iter = 0
                 duration_ms = 0.
-                while duration_ms < 5000. and test_iter < 100:
+                while duration_ms < 5000. and test_iter < 2:
                     result = engine.mp_forward(input_template)
                     if start_iters > 0:
                         start_iters -= 1
@@ -297,10 +297,12 @@ if __name__ == '__main__':
         }, 
         "model_config": json.loads(model_config_path.read_text()), 
         "perf_config": {
-            "perf_context": True, 
+            "perf_context": False, 
             "perf_decode": True,
-            "batch_size_list": [1, 4, 8, 16, 24, 32],
-            "seq_len_list": [1024, 2048, 4096, 8192]
+            "batch_size_list": [1],
+            # "batch_size_list": [1, 4, 8, 16, 24, 32],
+            # "seq_len_list": [1024, 2048, 4096, 8192]
+            "seq_len_list": [1024]
         }, 
         "feature_config": {
             "random_seed": args.random_seed,

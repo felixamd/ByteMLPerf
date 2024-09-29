@@ -766,6 +766,8 @@ class MixtralSdpaAttention(MixtralAttention):
         #     key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx, cache_kwargs)
 
         # past_key_value: [max_batch_size, kv_head_num, max_seq_len, head_dim]
+        # if self.layer_idx == 1:
+        print("!!!!!!!!!!!!!!!!!is_context, query_states.shape,key_states.shape,", is_context, query_states.shape,key_states.shape)
         if is_context:
             slot_id = valid_slot_ids[0]
             q_len = all_q_len[0]
@@ -797,6 +799,8 @@ class MixtralSdpaAttention(MixtralAttention):
         #         )
 
         attention_mask = kwargs.get("full_attention_mask")
+        # if self.layer_idx == 1:
+        print("!!!!!!!!!!!!!!!!!2 is_context, query_states.shape,key_states.shape,", is_context, query_states.shape,key_states.shape)
 
         # SDPA with memory-efficient backend is currently (torch==2.1.2) bugged with non-contiguous inputs with custom attn_mask,
         # Reference: https://github.com/pytorch/pytorch/issues/112577.

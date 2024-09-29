@@ -830,13 +830,14 @@ class MixtralSdpaAttention(MixtralAttention):
             attn_output = torch.empty_like(query_states)
             seq_lens = torch.tensor(all_q_len + all_q_len, dtype=torch.int).cuda()
             block_size = 32
-            max_num_blocks = 1024
-            
+            max_num_blocks = 4096 * 4
             max_num_blocks_per_seq = (max_kv_len + block_size - 1) //block_size
             block_tables_lst: List[List[int]] = []
+            block_start = 0
             for _ in range(bsz):
-                block_table = [0 for i in range(max_num_blocks_per_seq)]
+                block_table = [i + block_start for i in range(max_num_blocks_per_seq)]
                 block_tables_lst.append(block_table)
+                block_start += max_num_blocks_per_seq
             block_tables = torch.tensor(block_tables_lst, dtype=torch.int)
             block_tables = block_tables.cuda()
             x = 16 // torch.tensor([], dtype=query_states.dtype).element_size()
@@ -849,8 +850,6 @@ class MixtralSdpaAttention(MixtralAttention):
             value_cache = torch.empty(size=value_cache_shape,
                                     dtype=query_states.dtype,
                                     device=value_states.device).cuda()
-            # print("!!!!!!!!!!!!!!!!!2 is_context, query_states.shape,key_states.shape,", is_context, query_states.shape, query_states.dtype, key_states.shape, key_cache.shape, key_cache.dtype)
-
             paged_attention_v1(
                 attn_output,
                 query_states,

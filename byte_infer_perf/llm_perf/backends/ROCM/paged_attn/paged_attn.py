@@ -88,3 +88,13 @@ def paged_attention_rocm(
                                       scale, block_tables, seq_lens,
                                       block_size, max_seq_len, alibi_slopes,
                                       kv_cache_dtype, k_scale, v_scale)
+    
+    
+def _use_rocm_custom_paged_attention(qtype: torch.dtype, head_size: int,
+                                     block_size: int, gqa_ratio: int,
+                                     max_seq_len: int) -> bool:
+    # rocm custom page attention not support on navi (gfx1*)
+    return ((qtype == torch.half or qtype == torch.bfloat16)
+            and (head_size == 64 or head_size == 128)
+            and (block_size == 16 or block_size == 32)
+            and (gqa_ratio >= 1 and gqa_ratio <= 16) and max_seq_len <= 32768)

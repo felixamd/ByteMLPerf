@@ -15,16 +15,6 @@ class MixtralConfig(PretrainedConfig):
         self.rope_theta = rope_theta
         self.attention_dropout = attention_dropout
 
-# 假设配置
-config = MixtralConfig(
-    hidden_size=2048,
-    num_attention_heads=8,
-    num_key_value_heads=8,
-    max_position_embeddings=512,
-    rope_theta=10000,
-    attention_dropout=0.1
-)
-
 
 def create_input_params(mode, batch_size, seq_len):
     if mode == "context":
@@ -144,16 +134,16 @@ def build_inputs(mode, bs, seq_len, hidden_size):
 class TestMixtralAttention(unittest.TestCase):
     def test_forward_pass(self):
         config = MixtralConfig(
-            hidden_size=512,
-            num_attention_heads=8,
-            num_key_value_heads=4,
-            max_position_embeddings=512,
-            rope_theta=10000,
-            attention_dropout=0.1
+            hidden_size=6144,
+            num_attention_heads=48,
+            num_key_value_heads=8,
+            max_position_embeddings=65536,
+            rope_theta=1000000,
+            attention_dropout=0
         )
         layer_idx = 0
         mode = "context"
-        bs = 1
+        bs = 8
         seq_len = 1024
         inputs = build_inputs(mode, bs, seq_len, config.hidden_size)
         attention = MixtralAttention(config, layer_idx).cuda().half()
@@ -165,6 +155,9 @@ class TestMixtralAttention(unittest.TestCase):
         mode = "decode"
         inputs2 = build_inputs(mode, bs, seq_len, config.hidden_size)
         inputs2["past_key_value"] = past_key_value
+        output, attn_weights, past_key_value = attention2(**inputs2)
+        output, attn_weights, past_key_value = attention2(**inputs2)
+        output, attn_weights, past_key_value = attention2(**inputs2)
         output, attn_weights, past_key_value = attention2(**inputs2)
         self.assertEqual(output.shape, (bs, 1, config.hidden_size))
 

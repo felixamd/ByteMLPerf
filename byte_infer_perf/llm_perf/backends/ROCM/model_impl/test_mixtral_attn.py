@@ -126,13 +126,13 @@ def build_inputs(mode, bs, seq_len, hidden_size):
     ).cuda()
     is_context = forward_inputs["is_context"]
     if is_context:
-        forward_inputs["hidden_states"] = torch.rand(bs, seq_len, hidden_size).cuda()
+        forward_inputs["hidden_states"] = torch.rand(bs, seq_len, hidden_size).cuda().half()
         forward_inputs["full_attention_mask"] = get_context_masks(
             forward_inputs["input_ids"],
             forward_inputs["attention_mask"]
         )
     else:
-        forward_inputs["hidden_states"] = torch.rand(bs, 1, hidden_size).cuda()
+        forward_inputs["hidden_states"] = torch.rand(bs, 1, hidden_size).cuda().half()
         forward_inputs["full_attention_mask"] = get_decode_masks(
             forward_inputs["input_ids"],
             forward_inputs["all_kv_len"]
@@ -156,11 +156,8 @@ class TestMixtralAttention(unittest.TestCase):
         bs = 1
         seq_len = 1024
         inputs = build_inputs(mode, bs, seq_len, config.hidden_size)
-        attention = MixtralAttention(config, layer_idx)
-        attention.cuda()
-        attention2 = MixtralSdpaAttention(config, layer_idx)
-        attention2.cuda()
-        output, attn_weights, past_key_value = attention(**inputs)
+        attention = MixtralAttention(config, layer_idx).cuda().half()
+        attention2 = MixtralSdpaAttention(config, layer_idx).cuda().half()
         output, attn_weights, past_key_value = attention2(**inputs)
         output, attn_weights, past_key_value = attention2(**inputs)
         self.assertEqual(output.shape, (bs, seq_len, config.hidden_size))

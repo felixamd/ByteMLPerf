@@ -58,6 +58,7 @@ from transformers.models.mixtral.configuration_mixtral import MixtralConfig
 # from ..fused_moe.fused_moe import fused_moe
 from backends.ROCM.fused_moe.fused_moe import fused_moe
 from backends.ROCM.paged_attn.paged_attn import *
+from backends.ROCM.paged_attn.utils import *
 
 if is_flash_attn_2_available():
     from flash_attn import flash_attn_func, flash_attn_varlen_func
@@ -826,27 +827,37 @@ class MixtralSdpaAttention(MixtralAttention):
                 dropout_p=self.attention_dropout if self.training else 0.0,
             )
         else:
-            query_states = query_states.view(bsz * q_len, self.num_heads, self.head_dim)
+            query_states = query_states.view(bsz *q_len, self.num_heads, self.head_dim)
+            query_states = query_states.half()
             attn_output = torch.empty_like(query_states)
-            seq_lens = torch.tensor(all_q_len + all_q_len, dtype=torch.int)
+            seq_lens = torch.tensor(all_q_len + all_q_len, dtype=torch.int).cuda()
             block_size = 32
+            max_num_blocks = 1024
+            
             max_num_blocks_per_seq = (max_kv_len + block_size - 1) //block_size
             block_tables_lst: List[List[int]] = []
-            for _ in range(q_len):
-                block_table = [i for i in range(max_num_blocks_per_seq)]
+            for _ in range(bsz):
+                block_table = [0 for i in range(max_num_blocks_per_seq)]
                 block_tables_lst.append(block_table)
-                block_tables = torch.tensor(block_tables_lst, dtype=torch.int)
-                block_tables.cuda()
-    #         tmp_output = torch.empty(size=(bsz*q_len, self.num_heads, max_num_blocks_per_seq, self.head_dim), dtype= torch.float16, )
-    #         exp_sums = torch.empty(size=(bsz*q_len, self.num_heads, max_num_blocks_per_seq), dtype=torch.float32, )
-    #         max_logits = torch.empty_like(exp_sums)
-    #         print("===============shape========================",attn_output.shape, query_states.shape, \
-    #             key_states.shape, value_states.shape, self.num_key_value_heads, block_tables.shape)
+            block_tables = torch.tensor(block_tables_lst, dtype=torch.int)
+            block_tables = block_tables.cuda()
+            x = 16 // torch.tensor([], dtype=query_states.dtype).element_size()
+            key_cache_shape = (max_num_blocks, self.num_key_value_heads, self.head_dim // x, block_size, x)
+            key_cache = torch.empty(size=key_cache_shape,
+                                    dtype=query_states.dtype,
+                                    device=key_states.device).cuda()
+                                    
+            value_cache_shape = (max_num_blocks, self.num_key_value_heads, self.head_dim, block_size)
+            value_cache = torch.empty(size=value_cache_shape,
+                                    dtype=query_states.dtype,
+                                    device=value_states.device).cuda()
             paged_attention_v1(
                 attn_output,
                 query_states,
-                key_states,
-                value_states,
+                key_cache,
+                value_cache,
+                # key_states,
+                # value_states,
                 self.num_key_value_heads,
                 1.0,
                 block_tables,
@@ -856,7 +867,7 @@ class MixtralSdpaAttention(MixtralAttention):
                 None,
                 "auto",
                 1.0,
-                1.0,
+                1.0
             )
         attn_output = attn_output.transpose(1, 2).contiguous()
         attn_output = attn_output.view(bsz, q_len, self.num_heads * self.head_dim)

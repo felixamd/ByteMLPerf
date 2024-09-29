@@ -1,7 +1,7 @@
 import torch
 import random
 import unittest
-from modeling_mixtral_felix import MixtralAttention, MixtralSdpaAttention
+from modeling_mixtral import MixtralAttention, MixtralSdpaAttention
 from typing import Any, Dict, List, Optional
 from transformers import PretrainedConfig
 

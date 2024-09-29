@@ -55,7 +55,10 @@ from transformers.utils import (
 from transformers.utils.import_utils import is_torch_fx_available
 from transformers.models.mixtral.configuration_mixtral import MixtralConfig
 
-from ..fused_moe.fused_moe import fused_moe
+# from ..fused_moe.fused_moe import fused_moe
+from backends.ROCM.fused_moe.fused_moe import fused_moe
+from backends.ROCM.paged_attn.paged_attn import *
+from backends.ROCM.paged_attn.utils import *
 
 if is_flash_attn_2_available():
     from flash_attn import flash_attn_func, flash_attn_varlen_func
@@ -322,7 +325,7 @@ class MixtralAttention(nn.Module):
         self.num_heads = self.num_heads // self.mp_size
         self.num_key_value_heads = self.num_key_value_heads // self.mp_size
 
-
+    
     def _shape(self, tensor: torch.Tensor, seq_len: int, bsz: int):
         return tensor.view(bsz, seq_len, self.num_heads, self.head_dim).transpose(1, 2).contiguous()
 
@@ -703,6 +706,7 @@ class MixtralFlashAttention2(MixtralAttention):
         )
 
 
+
 # Copied from transformers.models.mistral.modeling_mistral.MistralSdpaAttention with Mistral->Mixtral
 class MixtralSdpaAttention(MixtralAttention):
     """
@@ -751,7 +755,6 @@ class MixtralSdpaAttention(MixtralAttention):
         valid_slot_ids = kwargs.get("valid_slot_ids")
         all_q_len = kwargs.get("all_q_len")
         all_kv_len = kwargs.get("all_kv_len")
-
         max_kv_len = max(all_kv_len) if is_context else max(all_q_len) + max(all_kv_len)
 
         # kv_seq_len = key_states.shape[-2]
@@ -760,37 +763,35 @@ class MixtralSdpaAttention(MixtralAttention):
         cos, sin = self.rotary_emb(value_states, seq_len=max_kv_len)
 
         query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin, position_ids)
+        # print("!!!!!!!!!!!!!!!!!is_context, query_states.shape,key_states.shape,", is_context, query_states.shape,key_states.shape)
 
         # if past_key_value is not None:
         #     cache_kwargs = {"sin": sin, "cos": cos}  # Specific to RoPE models
         #     key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx, cache_kwargs)
 
         # past_key_value: [max_batch_size, kv_head_num, max_seq_len, head_dim]
-        # if self.layer_idx == 1:
-        print("!!!!!!!!!!!!!!!!!is_context, query_states.shape,key_states.shape,", is_context, query_states.shape,key_states.shape)
+        # if is_context:
+        #     slot_id = valid_slot_ids[0]
+        #     q_len = all_q_len[0]
+            # if past_key_value is None:
+            #     past_key_value = DynamicCache()
+            #     past_key_value.update(key_states, value_states, self.layer_idx)
+            # else:
+            #     past_key_value.key_cache[self.layer_idx] = key_states
+            #     past_key_value.value_cache[self.layer_idx] = value_states
+            # else:
+            #     past_key_value[self.layer_idx][0][slot_id:slot_id+1, :, :q_len, :] = key_states
+            #     past_key_value[self.layer_idx][1][slot_id:slot_id+1, :, :q_len, :] = value_states
+        # else:
+            # batch_size, _, q_len, _ = key_states.shape
+            # max_qkv_len = q_len + max(all_kv_len)
+            # past_key_value.update(key_states, value_states, self.layer_idx)
+            # key_states = past_key_value.key_cache[self.layer_idx]#[0][:, :, :max_qkv_len, :]
+            # value_states = past_key_value.value_cache[self.layer_idx]#past_key_value[self.layer_idx][1][:, :, :max_qkv_len, :]
+
         if is_context:
-            slot_id = valid_slot_ids[0]
-            q_len = all_q_len[0]
-            past_key_value[self.layer_idx][0][slot_id:slot_id+1, :, :q_len, :] = key_states
-            past_key_value[self.layer_idx][1][slot_id:slot_id+1, :, :q_len, :] = value_states
-        else:
-            batch_size, _, q_len, _ = key_states.shape
-            max_qkv_len = q_len + max(all_kv_len)
-            for i, slot_id in enumerate(valid_slot_ids):
-                q_len = all_q_len[i]
-                kv_len = all_kv_len[i]
-                past_key_value[self.layer_idx][0][slot_id:slot_id+1, :, kv_len:kv_len+q_len, :] = key_states[i, :, :, :]
-                past_key_value[self.layer_idx][1][slot_id:slot_id+1, :, kv_len:kv_len+q_len, :] = value_states[i, :, :, :]
-
-            cur_k_cache = past_key_value[self.layer_idx][0][:, :, :max_qkv_len, :]
-            cur_v_cache = past_key_value[self.layer_idx][1][:, :, :max_qkv_len, :]
-            select_slots = torch.tensor(valid_slot_ids, device=key_states.device)
-            key_states = torch.index_select(cur_k_cache, 0, select_slots)
-            value_states = torch.index_select(cur_v_cache, 0, select_slots)
-
-
-        key_states = repeat_kv(key_states, self.num_key_value_groups)
-        value_states = repeat_kv(value_states, self.num_key_value_groups)
+            key_states = repeat_kv(key_states, self.num_key_value_groups)
+            value_states = repeat_kv(value_states, self.num_key_value_groups)
 
         # if attention_mask is not None:
         #     if attention_mask.size() != (bsz, 1, q_len, kv_seq_len):
@@ -799,8 +800,6 @@ class MixtralSdpaAttention(MixtralAttention):
         #         )
 
         attention_mask = kwargs.get("full_attention_mask")
-        # if self.layer_idx == 1:
-        print("!!!!!!!!!!!!!!!!!2 is_context, query_states.shape,key_states.shape,", is_context, query_states.shape,key_states.shape)
 
         # SDPA with memory-efficient backend is currently (torch==2.1.2) bugged with non-contiguous inputs with custom attn_mask,
         # Reference: https://github.com/pytorch/pytorch/issues/112577.
@@ -818,15 +817,58 @@ class MixtralSdpaAttention(MixtralAttention):
         #     # The q_len > 1 is necessary to match with AttentionMaskConverter.to_causal_4d that does not create a causal mask in case q_len == 1.
         #     is_causal=self.is_causal and attention_mask is None and q_len > 1,
         # )
+        if is_context:
+            attn_output = torch.nn.functional.scaled_dot_product_attention(
+                query_states,
+                key_states,
+                value_states,
+                attn_mask=~attention_mask,
+                dropout_p=self.attention_dropout if self.training else 0.0,
+            )
+        else:
+            query_states = query_states.view(bsz *q_len, self.num_heads, self.head_dim)
+            attn_output = torch.empty_like(query_states)
+            seq_lens = torch.tensor(all_q_len + all_q_len, dtype=torch.int).cuda()
+            block_size = 32
+            max_num_blocks = 1024
+            
+            max_num_blocks_per_seq = (max_kv_len + block_size - 1) //block_size
+            block_tables_lst: List[List[int]] = []
+            for _ in range(bsz):
+                block_table = [0 for i in range(max_num_blocks_per_seq)]
+                block_tables_lst.append(block_table)
+            block_tables = torch.tensor(block_tables_lst, dtype=torch.int)
+            block_tables = block_tables.cuda()
+            x = 16 // torch.tensor([], dtype=query_states.dtype).element_size()
+            key_cache_shape = (max_num_blocks, self.num_key_value_heads, self.head_dim // x, block_size, x)
+            key_cache = torch.empty(size=key_cache_shape,
+                                    dtype=query_states.dtype,
+                                    device=key_states.device).cuda()
+                                    
+            value_cache_shape = (max_num_blocks, self.num_key_value_heads, self.head_dim, block_size)
+            value_cache = torch.empty(size=value_cache_shape,
+                                    dtype=query_states.dtype,
+                                    device=value_states.device).cuda()
+            # print("!!!!!!!!!!!!!!!!!2 is_context, query_states.shape,key_states.shape,", is_context, query_states.shape, query_states.dtype, key_states.shape, key_cache.shape, key_cache.dtype)
 
-        attn_output = torch.nn.functional.scaled_dot_product_attention(
-            query_states,
-            key_states,
-            value_states,
-            attn_mask=~attention_mask,
-            dropout_p=self.attention_dropout if self.training else 0.0,
-        )
-
+            paged_attention_v1(
+                attn_output,
+                query_states,
+                key_cache,
+                value_cache,
+                # key_states,
+                # value_states,
+                self.num_key_value_heads,
+                1.0,
+                block_tables,
+                seq_lens,
+                int(block_size),
+                int(max_kv_len),
+                None,
+                "auto",
+                1.0,
+                1.0
+            )
         attn_output = attn_output.transpose(1, 2).contiguous()
         attn_output = attn_output.view(bsz, q_len, self.num_heads * self.head_dim)
 

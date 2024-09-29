@@ -3,32 +3,31 @@ import itertools
 import torch
 import backends.ROCM.paged_attn.paged_attn as pa                             
 from typing import (List, Optional, Any, Dict, Sequence, Tuple, Union)
-from backends.ROCM.paged_attn.utils import *
+from utils import *
 
 FLOAT32_BYTES = torch.finfo(torch.float).bits // 8
-#  torch.Size([1, 8, 1, 64]) torch.Size([1, 8, 1025, 64])
+
 # This will change depending on the compute capability.
-VERSIONS = ["v1"]
+VERSIONS = ["v1", "v2", "rocm"]
 # - 512 as a buffer
 # MAX_SEQ_LEN = get_max_shared_memory_bytes() // FLOAT32_BYTES - 512
 MAX_SEQ_LEN = (60 * 1024) // FLOAT32_BYTES - 512
 # There may not be enough gpu memory due to large NUM_BLOCKS.
 # Reduce NUM_BLOCKS when it happens.
-NUM_BLOCKS = 100  # Arbitrary values for testing
+NUM_BLOCKS = 4321  # Arbitrary values for testing
 PARTITION_SIZE = 512
 # flshattF and tritonflashattF supported: {torch.float16, torch.bfloat16}
-DTYPES = [torch.bfloat16]
-NUM_GEN_SEQS = [1]  # Arbitrary values for testing
-# NUM_HEADS = [(40, 40), (64, 8)]  # Arbitrary values for testing
-NUM_HEADS = [ (8, 4)]  # Arbitrary values for testing
+DTYPES = [torch.half, torch.bfloat16]
+NUM_GEN_SEQS = [7]  # Arbitrary values for testing
+NUM_PREFILL_SEQS = [3]  # Arbitrary values for testing
+NUM_HEADS = [(40, 40), (64, 8)]  # Arbitrary values for testing
 
 # FlashAttention forward only supports head dimension at most 128
 # https://github.com/ROCmSoftwarePlatform/flash-attention/blob/3d2b6f5d037782cc2c906909a46fb7e2e1b48b25/csrc/flash_attn_rocm/flash_api.cpp#L62
-# HEAD_SIZES = [64, 80, 96, 112, 120, 128, 192, 256]
-HEAD_SIZES = [64]
+HEAD_SIZES = [64, 80, 96, 112, 120, 128, 192, 256]
 
-BLOCK_SIZES = [32]
-USE_ALIBI = [False]
+BLOCK_SIZES = [16, 32]
+USE_ALIBI = [False, True]
 KV_CACHE_DTYPE = ["auto"]
 # KV_CACHE_DTYPE = ["auto", "fp8"]
 SEEDS = [0]
@@ -136,9 +135,9 @@ def test_paged_attention(
     if use_alibi:
         alibi_slopes = torch.randn(num_query_heads, dtype=torch.float)
 
-    seq_lens = [1025]
-    # seq_lens[-1] = MAX_SEQ_LEN
-    max_seq_len = 1025
+    seq_lens = [random.randint(1, MAX_SEQ_LEN) for _ in range(num_seqs)]
+    seq_lens[-1] = MAX_SEQ_LEN
+    max_seq_len = max(seq_lens)
     seq_lens = torch.tensor(seq_lens, dtype=torch.int)
 
     # Create the block tables.
@@ -146,7 +145,7 @@ def test_paged_attention(
     block_tables_lst: List[List[int]] = []
     for _ in range(num_seqs):
         block_table = [
-            0
+            random.randint(0, NUM_BLOCKS - 1)
             for _ in range(max_num_blocks_per_seq)
         ]
         block_tables_lst.append(block_table)
@@ -166,7 +165,6 @@ def test_paged_attention(
     # Call the paged attention kernel.
     output = torch.empty_like(query)
     if version == "v1":
-        print("shapes:",query.shape, key_cache.shape, value_cache.shape)
         pa.paged_attention_v1(
             output,
             query,
@@ -266,8 +264,8 @@ def test_paged_attention(
     atol, rtol = 1e-3, 1e-5
     if kv_cache_dtype == "fp8":
         atol, rtol = 1e-2, 1e-5
-    # torch.testing.assert_close(output, ref_output, atol=atol, rtol=rtol)
-    # print("    test passed!")
+    torch.testing.assert_close(output, ref_output, atol=atol, rtol=rtol)
+    print("    test passed!")
 
 
 def test_iters():
